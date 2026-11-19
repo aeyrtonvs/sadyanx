@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.tmp
+# Your own setup and work stay on your machine: the queue, every run, and your config
+# (`sadyanx install` creates the config from config/*.example.toml).
+tasks/*
+!tasks/.gitkeep
+runs/*
+!runs/.gitkeep
+config/sadyanx.toml
+config/repos.toml
+.DS_Store

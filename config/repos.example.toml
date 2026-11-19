@@ -1,0 +1,74 @@
+# Repos agents may work in. A code task only runs on a repo registered here.
+# `sadyanx install` copies this file to config/repos.toml (kept out of git): edit that one.
+#
+#   path      the main clone (the agent works in a separate worktree, never here)
+#   kind      personal | work. On work repos the PR needs your approval.
+#   base      branch the work starts from and the PR targets
+#   setup     commands run once when the worktree is created (install dependencies)
+#   gates     commands that must pass for the task to count as done
+#   branch    branch pattern: {id} {jira} {slug}. Without a ticket, {jira} becomes {id}.
+#   publish   pr (push + PR) | push (push only) | none (local branch)
+#   bitbucket_keychain  keychain service holding the Bitbucket user/token (to open PRs)
+#   sandbox   true | false: run the agent inside the OS sandbox (default: [sandbox] enabled
+#             in sadyanx.toml)
+#   sandbox_domains      extra domains the agent may reach from inside the sandbox
+#                        (e.g. the CodeArtifact domain for pip/npm installs)
+#   sandbox_allow_write  extra writable paths inside the sandbox
+#   run_mode  supervised | autonomous (default: [defaults] run_mode in sadyanx.toml). Start
+#             supervised; switch a repo to autonomous once its runs bring no surprises.
+#   code_review  off | low | medium | high | xhigh | max: the /code-review level before
+#             publishing (default: [defaults] code_review in sadyanx.toml)
+#   pr_review true | false: after the PR opens, wait for the external review comment, apply
+#             what holds up and push to the same PR (Bitbucket only; [pr_review] in sadyanx.toml)
+#   pr_ci     pipelines | codebuild: after the PR opens, watch its CI until it passes, fixing
+#             what fails ([pr_ci] in sadyanx.toml; Bitbucket PRs only). pipelines reads Bitbucket
+#             Pipelines with bitbucket_keychain (the token needs read:pipeline and write:pipeline);
+#             codebuild reads AWS CodeBuild with:
+#   codebuild_project  the CodeBuild project PR builds run in; {base} = the PR's target branch
+#   codebuild_initiator  who starts the PR builds there (codepipeline/<pipeline>); without it,
+#                      PR builds are the ones whose source version is pr/<id> (webhooks)
+#   aws_profile        the aws CLI profile the harness (never the agent) reads it with
+#   aws_region         optional; default: the profile's
+#   plan_check true | false (IaC): check that the CI's terraform plan is the change the task asked for
+
+# --- examples: uncomment and adapt -------------------------------------------------------
+
+# A personal repo on GitHub: PRs open on their own.
+# [repos.my-app]
+# path = "~/code/my-app"
+# kind = "personal"
+# base = "main"
+# setup = ["npm ci"]
+# gates = ["npm run lint", "npm test"]
+# branch = "agent/{id}-{slug}"
+# publish = "pr"
+
+# A work repo on Bitbucket: the PR waits for your approval, then its external review and its
+# Bitbucket Pipelines CI are followed until the PR is ready for your review.
+# [repos.work-api]
+# path = "~/work/api"
+# kind = "work"
+# base = "develop"
+# setup = ["make setup"]
+# gates = ["make lint", "make test"]
+# branch = "feature/{jira}-{slug}"
+# publish = "pr"
+# bitbucket_keychain = "bitbucket-work"
+# pr_review = true
+# pr_ci = "pipelines"
+
+# A Terraform repo whose PR checks run on AWS CodeBuild (started by a CodePipeline), with the
+# plan checked against the task.
+# [repos.work-infra]
+# path = "~/work/infra"
+# kind = "work"
+# base = "develop"
+# gates = ["terraform fmt -check -recursive", "make test"]
+# branch = "feature/{jira}-{slug}"
+# publish = "pr"
+# bitbucket_keychain = "bitbucket-work"
+# pr_ci = "codebuild"
+# codebuild_project = "infra-build-{base}"
+# codebuild_initiator = "codepipeline/infra-pr-{base}"
+# aws_profile = "ci-reader"
+# plan_check = true
