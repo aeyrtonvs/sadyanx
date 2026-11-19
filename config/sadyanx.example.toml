@@ -1,0 +1,106 @@
+# Global sadyanx configuration. `sadyanx install` copies this file to config/sadyanx.toml
+# (kept out of git): edit that one. Each task can override mode, budget_usd and timeout_min in
+# its frontmatter.
+
+[defaults]
+mode = "smart"           # the mode new tasks get; `!deep` / `!fast` override it
+# Each fix attempt of a run goes one step up a ladder: effort first (smart/high -> xhigh -> max),
+# and only then the next mode, never above escalation_ceiling. A task rerun after failing or
+# being blocked starts one step higher per earlier failure.
+escalate = true
+escalation_ceiling = "smart"   # ultra (Fable) is only used when you choose it: !deep
+budget_usd = 10.0        # cost cap per task (sum of all its attempts)
+timeout_min = 90         # agent time cap per run
+max_attempts = 3         # 1 attempt + up to 2 fix rounds when gates fail
+gate_timeout_min = 20    # per gate
+review_research = true   # an independent agent (balanced, no tools) checks research reports against the criteria
+claude_bin = "claude"
+keep_awake = true        # caffeinate while a task runs; closing a laptop's lid on battery still sleeps it
+# supervised: the task runs in a Claude session you watch in a terminal; it asks you its questions
+#             and approvals on the spot. autonomous: headless in the background, approvals park the
+#             task. Per repo: `run_mode` in repos.toml. Per run: `sadyanx run <id> --watch / --auto`.
+run_mode = "supervised"
+# Claude Code's /code-review on a code task's branch once its gates pass, before push/PR. Its
+# findings go back to the agent as a fix round (like a failing gate) and are reviewed again; if
+# only findings remain after the last attempt, the task is published with them listed in the PR.
+# Level: off | low | medium | high | xhigh | max (per repo: `code_review` in repos.toml).
+code_review = "medium"
+code_review_mode = "smart"     # who reviews (model + effort); a fresh session with read-only tools
+
+# Modes instead of models: a task says how hard the work is, this table says who does it.
+# subagents = the agent may launch subagents (Agent tool, ~2.6k more tokens per turn).
+[modes.ultra]            # hardest work. !deep
+model = "fable"
+effort = "xhigh"
+subagents = true
+
+[modes.smart]            # everyday work, the default
+model = "opus"
+effort = "high"
+subagents = false
+
+[modes.balanced]         # routine, high-volume work. !fast
+model = "sonnet"
+effort = "medium"
+subagents = false
+
+[modes.cheap]            # quick checks
+model = "haiku"
+effort = "low"
+subagents = false
+
+# The review an external agent posts as a comment on the PR (repos with `pr_review = true`).
+# After the PR opens the run waits for it; the task's agent applies the findings that hold up,
+# the repo's gates run, and the harness pushes to the same PR. One round: it reviews a PR once.
+[pr_review]
+wait_min = 10                       # give up waiting after this long (the task still ends done)
+poll_s = 60                         # how often to check the PR's comments
+marker = "## Automated PR Review"   # the review comment starts with this (it may use your account)
+
+# The PR's own CI (repos with `pr_ci`). It is watched together with the review; failures go to
+# the task's agent, which fixes what the change causes (the harness pushes) or says the cause is
+# outside it: a transient one is rerun once, any other is handed to you. IaC repos with
+# `plan_check` also get their plan checked against the task. When the CI passes, the ticket
+# moves to ready_jira_status and you are notified that the PR is ready for your review.
+[pr_ci]
+wait_min = 30                       # a run that takes longer counts as stuck (you are notified)
+start_min = 10                      # no run for the new commit by then: you are notified
+max_rounds = 3                      # fix rounds before the harness stops and hands the PR to you
+ready_jira_status = "CODE REVIEW"   # "" leaves the ticket where it is
+
+[notify]
+macos = true             # macOS banner
+sound = "Glass"
+# For iPhone notifications: install the ntfy app, subscribe to a hard-to-guess topic and put
+# it here. Empty = off. What gets sent: task id, status and title.
+ntfy_topic = ""
+ntfy_server = "https://ntfy.sh"
+
+[guard]
+# Branches where a local merge needs approval (each repo's base is added automatically).
+protected_branches = ["main", "master", "develop", "qa", "production", "prod", "release"]
+# Extra regexes, matched against each simple Bash command.
+extra_forbidden = []
+extra_gated = []
+# MCP write tools to allow without approval (regex on the full tool name).
+mcp_allow = []
+# Identical tool calls in a row before the guard denies them and tells the agent to change
+# approach (a cheap doom-loop cap; the budget is the hard stop). 0 = off.
+max_identical_calls = 3
+
+# Claude Code's OS sandbox (Seatbelt on macOS) around every Bash command an agent runs and
+# everything it starts: writes only to the worktree, the repo's .git, the temp dirs and
+# allow_write; no reads of deny_read; network only to allowed_domains. Setup, gates, push/PR
+# and the guard run outside it. Off by default: turn it on per repo (`sandbox = true` in
+# repos.toml) once `tests/sandbox_probe.py` passes. Inside it, `gh`, docker and git over SSH
+# do not work. See docs/DESIGN.md (D18).
+[sandbox]
+enabled = false
+deny_read = ["~/.ssh", "~/.aws", "~/.config/gh", "~/.netrc", "~/.docker", "~/.gnupg", "~/.kube",
+             "~/.npmrc", "~/.pypirc", "~/.git-credentials", "~/Library/Keychains"]
+allowed_domains = ["registry.npmjs.org", "registry.yarnpkg.com", "pypi.org", "files.pythonhosted.org",
+                   "github.com", "codeload.github.com", "objects.githubusercontent.com",
+                   "raw.githubusercontent.com"]
+allow_write = []                  # extra writable paths for every repo
+allow_local_binding = true        # tests that start a server on localhost
+weaker_network_isolation = false  # true if Go CLIs (gh, terraform) fail TLS inside the sandbox
