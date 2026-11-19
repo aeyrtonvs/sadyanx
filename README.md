@@ -1,10 +1,164 @@
 # sadyanx
 
-A personal, local harness that lets Claude Code agents work on their own: they take a task
-(from Jira or planned with you), do it in an isolated worktree, check themselves against
-acceptance criteria and the repo's gates, and hand back a branch with a PR and a report with
-evidence. Anything irreversible waits for your approval.
+Let Claude Code agents work on your tickets on their own, and get back a PR that is ready for
+your review: tested, reviewed, with its CI green, and with evidence for every acceptance
+criterion. Anything irreversible waits for your yes.
 
+sadyanx is a personal, local harness around [Claude Code](https://docs.claude.com/en/docs/claude-code).
+You give it a task (a Jira ticket, or something you planned in a Claude conversation); it runs
+an agent in an isolated git worktree under guardrails, verifies the work itself, pushes the
+branch, opens the PR, applies the review it gets and watches the PR's CI until it passes.
+You drive it from Claude Code with a `/task` command.
+
+## What it is
+
+- **A task queue and a runner on your Mac.** Tasks are Markdown files; each run gets its own
+  worktree and branch, so agents never touch your checkout and several tasks can sit side by side.
+- **Guardrails on every tool call.** A Claude Code `PreToolUse` hook checks each action: some are
+  forbidden (pushing, reading secrets, writing outside the worktree), some need your approval
+  (deploys, migrations, commenting on PRs or tickets), the rest runs. It fails closed. A kill
+  switch stops everything.
+- **Verification that is not the agent's word.** The repo's own gates (lint, tests...) must pass,
+  nothing may be left uncommitted, each acceptance criterion needs evidence, and code gets one
+  `/code-review`. Failures go back to the same agent session.
+- **The whole PR loop.** sadyanx (never the agent) pushes and opens the PR, waits for an external
+  review comment if your team has a review bot, watches the PR's CI (Bitbucket Pipelines or AWS
+  CodeBuild), sends failures back to the agent, checks Terraform plans against the task, and
+  moves the Jira ticket to Code Review when the PR is ready.
+- **Supervised or autonomous.** Watch the agent in a terminal and answer it, or let it run headless
+  with a budget and a time limit and get notified.
+- **Token-aware.** Tasks pick a mode (ultra/smart/balanced/cheap) instead of a model, escalate
+  effort only when an attempt fails, and every agent call's tokens are recorded so
+  `sadyanx usage` can show where they go.
+
+## What it is not
+
+- **Not a service or a CI.** Nothing runs in the cloud or on a schedule: it runs on your Mac when
+  you start a task. There is no daemon, no web UI, no team setup.
+- **Not a merge bot.** It never merges and never deploys on its own. The PR ends ready for *your*
+  review; merging is yours.
+- **Not a replacement for review.** It reviews and checks a lot, but a human reads the PR.
+- **Not an agent framework.** It does not call the Claude API or define agents: it drives the
+  `claude` CLI you already use, with its own prompts, hook and settings.
+- **Not cross-platform.** It uses the macOS keychain, notifications and `caffeinate`.
+- **Not every forge.** PRs open on GitHub (`gh`) and Bitbucket Cloud. The PR review and CI loop
+  is Bitbucket Cloud only for now (GitHub Actions is next). Bitbucket Server/Data Center is not
+  supported.
+- **Not free to run.** Agents use your Claude plan. On a Max subscription the dollar figures are
+  list-price estimates; the usage quota is what runs out.
+
+## Requirements
+
+| What | Needed for |
+|---|---|
+| macOS, Python 3.11+ (standard library only), git | everything |
+| [Claude Code](https://docs.claude.com/en/docs/claude-code), signed in | the agents and the `/task` command |
+| `gh`, signed in | opening PRs on GitHub |
+| A Bitbucket API token in the keychain | opening PRs on Bitbucket, reading reviews and CI |
+| The Atlassian connector in Claude | `/task jira`, and moving tickets |
+| The aws CLI and a profile | only for repos whose PR checks run on AWS CodeBuild |
+| The Claude Docs connector | only for research tasks (their report goes there) |
+
+## Setup, with Claude doing the typing
+
+Most of the setup is editing two TOML files, and Claude Code is good at that. The only things
+you have to do yourself are the ones that involve your credentials.
+
+### 1. Clone and install
+
+```sh
+git clone https://github.com/aeyrtonvs/sadyanx.git ~/code/sadyanx
+cd ~/code/sadyanx
+bin/sadyanx install
+```
+
+`install` creates your `config/sadyanx.toml` and `config/repos.toml` from the examples, links the
+`sadyanx` command into `~/.local/bin` (put it on your `PATH`) and the `/task` command into
+`~/.claude/commands`, and marks your registered repos as trusted in Claude Code. Your config,
+the task queue (`tasks/`) and the runs (`runs/`) are ignored by git: they stay on your machine.
+
+### 2. Let Claude register your repos
+
+Open Claude Code in the sadyanx folder and describe your repos. For example:
+
+> Register my repos in `config/repos.toml`, following `config/repos.example.toml`:
+> - `~/code/my-app` is personal, on GitHub, base `main`; its checks are `npm run lint` and
+>   `npm test`, setup is `npm ci`.
+> - `~/work/api` is a work repo on Bitbucket, base `develop`. Read its Makefile and its
+>   `bitbucket-pipelines.yml` to pick the setup and gates, use the keychain item
+>   `bitbucket-work`, and watch its PR CI (`pr_ci = "pipelines"`).
+> - `~/work/infra` is Terraform on Bitbucket whose PR checks run on AWS CodeBuild. Find which
+>   CodeBuild project and pipeline run its PR builds with my `ci-reader` AWS profile (read-only
+>   commands), and turn on the plan check.
+>
+> Then run `sadyanx doctor` and fix what it reports.
+
+Things worth knowing when you (or Claude) fill a repo in:
+
+- `kind = "work"` makes opening the PR wait for your approval; `personal` opens it on its own.
+- `gates` are the commands that decide whether the work is done. Prefer the ones the CI runs, so
+  a green run here means a green PR.
+- `branch` takes `{id}`, `{jira}` and `{slug}`: e.g. `feature/{jira}-{slug}`.
+- `run_mode = "supervised"` is the default. Move a repo to `autonomous` once its runs bring no
+  surprises.
+- The comments at the top of `config/repos.example.toml` and `config/sadyanx.example.toml`
+  document every key.
+
+### 3. The credentials only you can create
+
+Claude can tell you what to click and run the commands that store things, but the tokens and
+logins are yours. Never paste a token into the chat.
+
+**Bitbucket API token** (PRs on Bitbucket, the review comment, the CI). At
+id.atlassian.com → Security → *Create API token with scopes* → Bitbucket, give it:
+
+| Scope | For |
+|---|---|
+| `read:repository:bitbucket`, `read:project:bitbucket` | the repo |
+| `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket` | reading the PR and its comments, opening it |
+| `read:pipeline:bitbucket` | the PR's CI: its steps and logs |
+| `write:pipeline:bitbucket` | rerunning a CI run that failed for a transient reason |
+
+Copy the token and store it with your Atlassian email as the account (the item name is the
+`bitbucket_keychain` of your repos):
+
+```sh
+security add-generic-password -U -s bitbucket-work -a you@example.com -w "$(pbpaste)"
+```
+
+Use `-w "$(pbpaste)"`: typing the token at the interactive `-w` prompt silently cuts it to 128
+characters, and these tokens are longer. Scopes cannot be added to an existing token; create a
+new one. Pushing does not use the token: it goes through your usual git remote (SSH).
+
+**Atlassian connector** (`/task jira`, moving tickets). Add the Atlassian connector to Claude
+(claude.ai → Settings → Connectors) and sign in. The guard allows moving a ticket's status and
+asks before commenting.
+
+**AWS** (only for CodeBuild CI). A profile that can run `codebuild:ListBuildsForProject`,
+`codebuild:BatchGetBuilds`, `codebuild:RetryBuild` and `logs:GetLogEvents`. With SSO, log in
+before a run (`aws sso login --profile ci-reader`); if the session expires while a task waits
+on CI, sadyanx notifies you with that command and keeps polling.
+
+**GitHub** (only for PRs on GitHub): `gh auth login`.
+
+**Long unattended runs**: the Claude sign-in expires; for autonomous runs that must not stop,
+create a long-lived token with `claude setup-token` and export `CLAUDE_CODE_OAUTH_TOKEN`.
+
+**Phone notifications** (optional): install the ntfy app, subscribe to a hard-to-guess topic and
+put it in `ntfy_topic` in `config/sadyanx.toml`. macOS notifications work out of the box.
+
+### 4. Check it
+
+```sh
+sadyanx doctor
+```
+
+It checks Claude Code, `gh`, the config, each repo (base branch, trust, keychain item, PR review
+and CI settings, the AWS profile) and the TLS certificates. The python.org Python ships without
+CA certificates; sadyanx then uses the system bundle, and `doctor` says so.
+
+Then, in any Claude Code session: `/task jira PROJ-1234` (or `/task new` after planning
+something), and `/task run <id>`.
 
 ## Day to day (from Claude Code)
 
@@ -34,8 +188,8 @@ The same is available as a CLI (`sadyanx --help`): `add`, `list`, `show`, `run`,
 | Limits | you are watching (no dollar or time cap) | budget and time limit per task |
 
 `run_mode` in `config/sadyanx.toml` sets the default; set it per repo in `config/repos.toml`
-and switch a repo to `autonomous` once its runs bring no surprises. Run `sadyanx install`
-once so Claude Code does not ask whether to trust each new folder.
+and switch a repo to `autonomous` once its runs bring no surprises. `sadyanx install`
+marks the repos as trusted so Claude Code does not ask about each new folder.
 
 ## Modes, not models
 
@@ -126,21 +280,17 @@ If the Mac shuts down or the runner dies mid-task, the next `list`/`show`/`run` 
 - **Audit**: every tool call and its verdict go to `runs/<id>/audit.jsonl`; the full
   transcript to `runs/<id>/stream.jsonl`.
 
-## Configuration
+## Configuration reference
 
-Your configuration lives on your machine, next to the code but out of git: `sadyanx install`
-creates `config/sadyanx.toml` and `config/repos.toml` from the `*.example.toml` files the repo
-ships, and you edit those. The task queue (`tasks/`) and every run (`runs/`) stay local too.
-
-- `config/sadyanx.toml`: default mode and the mode table, budget and time, notifications, extra
-  guard rules. On a Max plan the budget is a list-price estimate; it still bounds the tokens.
-- `config/repos.toml`: registered repos (path, `personal`/`work`, base, setup, gates, branch
-  pattern, how to publish, whether to apply the external PR review and watch the PR's CI). A
-  code task only runs on a registered repo. Watching Bitbucket Pipelines needs a token with
-  `read:pipeline` and `write:pipeline`; CodeBuild needs a logged-in `aws_profile`.
-- HTTPS (Bitbucket PRs, ntfy) uses the system's CA certificates when Python has none of its own
-  (the python.org installer); `sadyanx doctor` shows which.
-- Each task can override `mode`, `budget_usd` and `timeout_min` in its frontmatter.
+- `config/sadyanx.toml` (from `sadyanx.example.toml`, which is also used when yours is missing):
+  `[defaults]` default mode, run mode, budget and time per task, attempts, `/code-review` level;
+  `[modes.*]` which model and effort each mode uses; `[pr_review]` the review bot's comment
+  marker and how long to wait for it; `[pr_ci]` how long to wait for CI, fix rounds, the Jira
+  status a ready PR moves to; `[notify]`; `[guard]` extra forbidden or gated patterns;
+  `[sandbox]`.
+- `config/repos.toml` (from `repos.example.toml`): the repos agents may work in. A code task only
+  runs on a registered repo.
+- Each task can override `mode`, `effort`, `budget_usd` and `timeout_min` in its frontmatter.
 
 ## Layout
 
