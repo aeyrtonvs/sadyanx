@@ -166,6 +166,7 @@ something), and `/task run <id>`.
 |---|---|
 | A task from a ticket | `/task jira PROJ-1234` (optionally `/task jira PROJ-1234 my-backend`) |
 | A task from what you just planned | `/task new` |
+| A task from a Slack request | `/task new` with the message's link: the agent drafts a reply and the harness sends it there after your yes |
 | Run it | `/task run 7` — moves the Jira ticket to In Progress, then opens the session in a Terminal-panel tab (supervised) or runs it in the background and notifies you (autonomous) |
 | Choose for one run | `/task run 7 watch` (supervised) · `/task run 7 auto` (autonomous) |
 | Pick how hard the work is | add `!deep` (ultra) or `!fast` (balanced) to `jira`, `new` or `run` |
@@ -245,10 +246,14 @@ A task says how hard the work is; `config/sadyanx.toml` says who does it.
    the same round as the review: it fixes what the change causes and the harness pushes, then
    watches the new commit's CI, up to 3 rounds. A failure outside the change is rerun once if
    it looks transient, otherwise handed to you. On IaC repos (`plan_check`) an independent
-   check reads the plan and stops on anything the task does not explain. When it is green, the
+   check reads the plan and stops on anything the task does not explain; environments the CI
+   does not plan (`plan_envs` in the repo) are listed for your review instead. When it is green, the
    Jira ticket moves to Code Review and you get "PR ready for your review"; the merge is yours.
    Settings in `[pr_ci]` of `sadyanx.toml`.
-7. **Report**: `runs/<id>/report.md` + a macOS notification (and iPhone, if you set up ntfy).
+7. **Slack reply** (tasks created from a Slack message): the agent drafts the body; the harness
+   wraps it in the `[slack]` format (greeting, body, sign-off), shows it to you and sends it
+   back to the same conversation or thread only on your yes. Settings in `[slack]`.
+8. **Report**: `runs/<id>/report.md` + a macOS notification (and iPhone, if you set up ntfy).
    Every agent call's tokens go to `runs/<id>/usage.jsonl` for `sadyanx usage`.
 
 Statuses: `draft → ready → running → verifying → done`, or `needs-approval`, `blocked`,
@@ -262,9 +267,11 @@ If the Mac shuts down or the runner dies mid-task, the next `list`/`show`/`run` 
 | | What | Examples |
 |---|---|---|
 | ⛔ Forbidden | the agent can never do it | push (the harness does), writing outside the worktree, reading `.env`/keys/keychain, `sudo`, global installs, changing remotes, opening PRs |
-| ⏸ Approval | supervised: asked on the spot · autonomous: parked, and you get notified | deploys (`firebase deploy`, `terraform apply`, `make deploy`, `kubectl apply`, `npm publish`...), `gh pr merge`, commenting on PRs/issues/Jira, `curl` writing to an external service, deleting branches, migrations, DB clients |
+| ⏸ Approval | supervised: asked on the spot · autonomous: parked, and you get notified | deploys (`firebase deploy`, `terraform apply`, `make deploy`, `kubectl apply`, `npm publish`...), `gh pr merge`, commenting on PRs/issues/Jira, `curl` writing to an external service, deleting branches, migrations, DB clients, Slack writes (reactions, canvases...) |
 | ✅ Autonomous | everything else | editing, committing, running tests/builds, reading Jira, moving a ticket's status, creating private Claude Docs |
 
+- **Slack messages** are never sent by an agent: a reply goes in its result, and the harness
+  sends it after your approval in a session allowed to make exactly that one call.
 - Approvable actions must run **alone** in their call: what you approve is exactly that
   action, and it is good for one use.
 - **Repeated calls**: the 3rd identical call in a row is denied and the agent is told to change
@@ -286,8 +293,8 @@ If the Mac shuts down or the runner dies mid-task, the next `list`/`show`/`run` 
   `[defaults]` default mode, run mode, budget and time per task, attempts, `/code-review` level;
   `[modes.*]` which model and effort each mode uses; `[pr_review]` the review bot's comment
   marker and how long to wait for it; `[pr_ci]` how long to wait for CI, fix rounds, the Jira
-  status a ready PR moves to; `[notify]`; `[guard]` extra forbidden or gated patterns;
-  `[sandbox]`.
+  status a ready PR moves to; `[slack]` the format of Slack replies; `[notify]`; `[guard]`
+  extra forbidden or gated patterns; `[sandbox]`.
 - `config/repos.toml` (from `repos.example.toml`): the repos agents may work in. A code task only
   runs on a registered repo.
 - Each task can override `mode`, `effort`, `budget_usd` and `timeout_min` in its frontmatter.

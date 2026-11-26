@@ -17,6 +17,7 @@ import secrets
 import shutil
 import signal
 import subprocess
+import tempfile
 import sys
 import threading
 import time
@@ -24,7 +25,7 @@ import uuid
 from pathlib import Path
 from string import Template
 
-from . import approvals, ci, config, gitops, modes, notify, paths, report, sandbox, tasks, trust
+from . import approvals, ci, config, gitops, modes, notify, paths, report, sandbox, slack, tasks, trust
 from .tasks import Task
 
 CI_CAUSES = ["change", "transient", "outside"]
@@ -53,9 +54,20 @@ RESULT_SCHEMA = {
         "blockers": {"type": "array", "items": {"type": "string"}},
         # only when fixing a failed CI run: what caused it (see prompts/ci-failure.md)
         "ci_cause": {"type": "string", "enum": CI_CAUSES},
+        # only for a task that came from Slack: the body of the reply to whoever asked (D26)
+        "reply": {"type": "string"},
     },
     "required": ["status", "summary", "criteria"],
 }
+
+# The session that sends an approved Slack reply (D26).
+SLACK_SCHEMA = {
+    "type": "object",
+    "properties": {"sent": {"type": "boolean"}, "link": {"type": "string"}, "note": {"type": "string"}},
+    "required": ["sent", "link", "note"],
+}
+SLACK_MAX_USD = 0.30
+REPLY_FILE = "slack-reply.md"
 
 # The check of a terraform plan read from the PR's CI (repos with plan_check).
 PLAN_SCHEMA = {
@@ -74,8 +86,16 @@ PLAN_SCHEMA = {
         },
         "unexpected": {"type": "array", "items": {"type": "string"}},
         "drift": {"type": "array", "items": {"type": "string"}},
+        "unplanned": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"environment": {"type": "string"}, "check": {"type": "string"}},
+                "required": ["environment", "check"],
+            },
+        },
     },
-    "required": ["expected", "summary", "changes", "unexpected", "drift"],
+    "required": ["expected", "summary", "changes", "unexpected", "drift", "unplanned"],
 }
 PLAN_MAX_USD = 1.0
 DIFF_MAX_CHARS = 60_000
@@ -241,7 +261,7 @@ def check_result(obj) -> str | None:
     for key in ("links", "learnings", "blockers"):
         if key in obj and not (isinstance(obj[key], list) and all(isinstance(x, str) for x in obj[key])):
             return f"`{key}` must be a list of strings"
-    for key in ("pr_title", "pr_body"):
+    for key in ("pr_title", "pr_body", "reply"):
         if key in obj and not isinstance(obj[key], str):
             return f"`{key}` must be a string"
     if "ci_cause" in obj and obj["ci_cause"] not in CI_CAUSES:
@@ -425,6 +445,9 @@ class Runner:
         notify.send(title, message, self.cfg.notify, log=self.log)
 
     def finish(self, status: str, reason: str = "", result: dict | None = None, rework: bool = True) -> str:
+        if status == "done" and self.task.get("slack_channel") and not self.task.get("slack_reply"):
+            # the task came from Slack: its reply goes out only on your yes (D26)
+            status, reason = self.slack_reply(result or self.last_result() or {}, reason)
         self.save(status=status, reason=reason)
         if status in ("failed", "blocked") and self.agent_called and rework:
             # the task was harder than its mode: the next run starts one rung higher.
@@ -540,8 +563,17 @@ class Runner:
         if self.task.type == "code":
             return template("task-code.md", repo=self.repo.name, repo_kind=self.repo.kind, base=self.repo.base,
                             branch=self.task.get("branch"), skills=skills_section(self.workdir),
-                            gates=" && ".join(self.repo.gates) or "(no gates configured)", **common)
-        return template("task-research.md", **common)
+                            gates=" && ".join(self.repo.gates) or "(no gates configured)", **common) \
+                + self.reply_section()
+        return template("task-research.md", **common) + self.reply_section()
+
+    def reply_section(self) -> str:
+        """How to draft the Slack reply, for a task that came from Slack (D26)."""
+        if not self.task.get("slack_channel"):
+            return ""
+        f = self.cfg.slack
+        return "\n\n" + template("reply.md", language=f["language"], greeting=f["greeting"],
+                                  sign_off=f["sign_off"], max_chars=f["max_chars"])
 
     # --- the agent -------------------------------------------------------
     def session_args(self, prompt: str, resume: bool, mode: modes.Mode, headless: bool) -> tuple[list[str], str]:
@@ -1396,6 +1428,9 @@ class Runner:
                 return self.finish("blocked", f"the plan is not the expected one: {unexpected}"[:600], rework=False)
             notes.append("plan as expected" + (f" ({len(verdict['drift'])} drift note(s))" if verdict.get("drift")
                                                else ""))
+            unplanned = sorted({u["environment"] for u in verdict.get("unplanned") or []})
+            if unplanned:
+                notes.append(f"not planned by this CI: {', '.join(unplanned)} (check its own plan; see the report)")
         jira = self.move_jira()
         if jira:
             notes.append(jira)
@@ -1422,7 +1457,7 @@ class Runner:
         if len(diff) > DIFF_MAX_CHARS:
             diff = diff[:DIFF_MAX_CHARS] + "\n[... diff cut ...]"
         prompt = template("plan-check.md", title=self.task.title, body=self.task_body(), stat=stat,
-                          diff=fence(diff, "diff"), plan=fence(plan, "CI log"))
+                          diff=fence(diff, "diff"), plan=fence(plan, "CI log"), planned=self.planned_envs())
         mode = self.cfg.mode("balanced")
         claude = shutil.which(self.cfg.defaults["claude_bin"]) or str(Path.home() / ".local/bin/claude")
         args = [claude, "-p", prompt, "--model", mode.model, "--effort", mode.effort, "--tools", "",
@@ -1450,12 +1485,43 @@ class Runner:
                           time.monotonic() - started, outcome)
         if not ok:
             return None
+        self.sort_unplanned(verdict)
         verdict["logs"] = str(folder.relative_to(paths.root())) if folder else ""
         (self.run_dir / "plan-check.json").write_text(json.dumps(verdict, indent=2, ensure_ascii=False),
                                                       encoding="utf-8")
         self.save_ci(reader, plan=verdict)
         self.log(f"plan check: {outcome}: {verdict.get('summary', '')[:200]}")
         return verdict
+
+    def planned_envs(self) -> str:
+        """What the plan check is told about the environments the PR's CI plans."""
+        if not self.repo.plan_envs:
+            return ("The environments this CI plans are not declared: a diff that changes an environment "
+                    "with no plan here is `unexpected`, and `unplanned` stays empty.")
+        names = ", ".join(f"`{e}`" for e in self.repo.plan_envs)
+        return (f"This CI plans only these environments: {names}. That is how the CI is set up, not a "
+                "fault of this PR: an environment outside that list that the diff changes has no plan here. "
+                "List each such environment in `unplanned` (its name, and what the reviewer must check in "
+                "its own plan), not in `unexpected`. A listed environment with no plan is still `unexpected`.")
+
+    def sort_unplanned(self, verdict: dict) -> None:
+        """Keep in `unplanned` only environments the CI is declared not to plan. Anything else
+        the checker put there (no declaration, a planned environment, a malformed entry) is
+        moved to `unexpected`: a missing plan is never waved through unless the config says
+        the CI does not plan that environment (fail closed)."""
+        kept, moved = [], []
+        planned = set(self.repo.plan_envs)
+        for item in verdict.get("unplanned") or []:
+            env = str(item.get("environment", "")).strip() if isinstance(item, dict) else ""
+            check = str(item.get("check", "")).strip() if isinstance(item, dict) else str(item)
+            if planned and env and env not in planned:
+                kept.append({"environment": env, "check": check})
+            else:
+                moved.append(f"no plan for `{env or '?'}`, which this CI is not declared to skip: {check}")
+        verdict["unplanned"] = kept
+        if moved:
+            verdict["unexpected"] = list(verdict.get("unexpected") or []) + moved
+            verdict["expected"] = False
 
     def move_jira(self) -> str:
         """Move the task's ticket to [pr_ci] ready_jira_status with a short headless session
@@ -1495,6 +1561,94 @@ class Runner:
         if verdict["moved"] or str(verdict.get("status", "")).strip().lower() == status.lower():
             return f"{key} in {status}"
         return f"{key} not moved: {verdict.get('note', '')}"[:200]
+
+    # --- the Slack reply (D26) ----------------------------------------------
+    def slack_reply(self, result: dict, reason: str) -> tuple[str, str]:
+        """The task is done and came from Slack: format the agent's reply and send it only on your
+        yes. Supervised: asked in the terminal. Otherwise parked for `sadyanx approve`.
+        Returns the task's (status, reason)."""
+        fmt = self.cfg.slack
+        channel, thread = self.task.get("slack_channel"), self.task.get("slack_thread") or ""
+
+        def note(msg: str) -> str:
+            return f"{reason}; {msg}" if reason else msg
+
+        bad = slack.problem(str(result.get("reply") or ""), fmt)
+        if bad:
+            self.save(slack_reply=f"not sent: {bad}")
+            self.log(f"slack: no reply sent ({bad})")
+            return "done", note(f"no Slack reply ({bad})")
+        text = slack.render(str(result["reply"]), fmt)
+        (self.run_dir / REPLY_FILE).write_text(text + "\n", encoding="utf-8")
+        payload = {"channel": channel, "thread": thread, "text": text, "reason": reason}
+        if self.supervised and has_terminal():
+            print(f"\nsadyanx: reply on Slack ({slack.where(channel, thread)}):\n\n"
+                  + "\n".join("    " + line for line in text.splitlines()) + "\n", flush=True)
+            if not self.confirm("Send this reply on Slack?", default=False):
+                self.save(slack_reply="not sent (your call)")
+                return "done", note(f"Slack reply not sent (your call); its text is in runs/{self.task.id}/{REPLY_FILE}")
+            return "done", note(self.send_slack(payload))
+        item = approvals.request_harness(self.run_dir, "slack-reply", payload, "third-party",
+                                         "reply on Slack to whoever asked")
+        self.save(phase="reply", slack_reply="waiting for approval")
+        self.log(f"slack: reply waiting for approval [{item['id']}]")
+        return "needs-approval", reason
+
+    def send_slack(self, payload: dict) -> str:
+        """Send an approved reply in a short headless session (cheap mode, ToolSearch and the MCP
+        servers only) whose guard allows exactly that one call and nothing else approvable.
+        Returns a note for the task's reason; a failure does not undo the task."""
+        fmt = self.cfg.slack
+        args_in = slack.send_args(payload["channel"], payload.get("thread", ""), payload["text"])
+        ctx = {"task_id": self.task.id, "run_dir": str(self.run_dir), "write_roots": [],
+               "kill_file": str(paths.kill_file()), "max_identical_calls": 2, "interactive": False,
+               "deny_gated": True, "pinned_calls": [{"tool": fmt["send_tool"], "input": args_in}]}
+        ctx_file = self.run_dir / "guard-slack.json"
+        ctx_file.write_text(json.dumps(ctx, indent=2, ensure_ascii=False), encoding="utf-8")
+        hook_cmd = f"{sys.executable} {paths.sadyanx_bin()} hook guard"
+        settings_file = self.run_dir / "settings-slack.json"
+        settings_file.write_text(json.dumps({"hooks": {"PreToolUse": [{"matcher": "*", "hooks": [
+            {"type": "command", "command": hook_cmd, "timeout": 30}]}]}}, indent=2), encoding="utf-8")
+        mode = self.cfg.mode("cheap")
+        prompt = template("slack-send.md", args=json.dumps(args_in, indent=2, ensure_ascii=False))
+        claude = shutil.which(self.cfg.defaults["claude_bin"]) or str(Path.home() / ".local/bin/claude")
+        args = [claude, "-p", prompt, "--model", mode.model, "--effort", mode.effort, "--tools", "ToolSearch",
+                "--exclude-dynamic-system-prompt-sections", "--no-session-persistence",
+                "--permission-mode", "bypassPermissions", "--settings", str(settings_file),
+                "--output-format", "json", "--max-budget-usd", f"{SLACK_MAX_USD:.2f}",
+                "--json-schema", json.dumps(SLACK_SCHEMA)]
+        self.log(f"slack: sending the reply to {slack.where(payload['channel'], payload.get('thread', ''))}")
+        (self.run_dir / "repeat.json").unlink(missing_ok=True)
+        audit = self.run_dir / "audit.jsonl"
+        offset = audit.stat().st_size if audit.exists() else 0
+        started = time.monotonic()
+        out = None
+        try:
+            with tempfile.TemporaryDirectory(prefix="sadyanx-slack-") as cwd:  # no CLAUDE.md to inherit
+                proc = subprocess.run(args, cwd=cwd, capture_output=True, text=True, timeout=300,
+                                      stdin=subprocess.DEVNULL,
+                                      env=agent_env({"SADYANX_GUARD_CTX": str(ctx_file),
+                                                     "SADYANX_TASK_ID": self.task.id}))
+            out = json.loads(proc.stdout.strip().splitlines()[-1])
+        except (subprocess.TimeoutExpired, json.JSONDecodeError, IndexError, OSError) as exc:
+            self.log(f"slack: the session failed ({type(exc).__name__})")
+        cost = float((out or {}).get("total_cost_usd") or 0.0)
+        self.save(cost_usd=self.spent + cost)
+        verdict = (out or {}).get("structured_output")
+        verdict = verdict if isinstance(verdict, dict) else {}
+        # sent only if the guard let the pinned call through and the session says it was posted
+        sent = bool(verdict.get("sent")) and pinned_call_allowed(audit, offset)
+        self.record_usage(mode, "slack", int(self.task.num("attempts")), out, {}, cost,
+                          time.monotonic() - started, "sent" if sent else "not-sent")
+        if sent:
+            link = str(verdict.get("link") or "").strip()
+            self.save(slack_reply=link or "sent")
+            self.log(f"slack: reply sent {link}".rstrip())
+            return f"Slack reply sent{': ' + link if link else ''}"
+        why = str(verdict.get("note") or "the send session failed")[:200]
+        self.save(slack_reply=f"not sent: {why}")
+        self.log(f"slack: reply NOT sent ({why})")
+        return f"Slack reply NOT sent ({why}); its text is in runs/{self.task.id}/{REPLY_FILE}"
 
     # --- main loop -------------------------------------------------------
     def run(self) -> str:
@@ -1565,6 +1719,9 @@ class Runner:
     def _run(self) -> str:
         if self.task.get("phase") == "publish":
             raise RunError("the task is waiting for PR approval: sadyanx approve " + self.task.id)
+        if self.task.get("phase") == "reply":
+            raise RunError("the task is done and its Slack reply waits for your approval: "
+                           f"sadyanx approve {self.task.id} (or reject)")
         self.prepare()
         decided = self._decided_prompt()
         if self.task.get("phase") == "pr-review":
@@ -1586,7 +1743,7 @@ class Runner:
             # finished an earlier run (blocked, failed...) or was cut off mid-run (killed, Mac off):
             # either way the worktree holds that session's work, so pick the session back up
             prompt = ("Pick this task up where you left off. Its current description (it may hold new "
-                      "information from the human) is:\n\n" + self.task_body())
+                      "information from the human) is:\n\n" + self.task_body() + self.reply_section())
             resume, phase = True, "resume"
         else:
             prompt, resume = self.initial_prompt(), False
@@ -1676,6 +1833,24 @@ class Runner:
             prompt = template("fix.md", attempt=nth, max_attempts=self.max_attempts,
                               problems="\n\n".join(problems), branch=self.task.get("branch"))
             phase = "fix"
+
+
+def pinned_call_allowed(audit: Path, offset: int) -> bool:
+    """Whether the guard let a pinned call (an approved Slack send) through since `offset`."""
+    try:
+        with audit.open("rb") as fh:
+            fh.seek(offset)
+            lines = fh.read().decode("utf-8", errors="replace").splitlines()
+    except OSError:
+        return False
+    for line in lines:
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if entry.get("verdict") == "allow" and entry.get("category") == "pinned":
+            return True
+    return False
 
 
 def open_pr(repo: config.Repo, worktree: Path, payload: dict, log) -> str:
@@ -1785,4 +1960,15 @@ def apply_harness_approvals(task: Task, cfg: config.Config) -> str | None:
             approvals.mark(run_dir, item["id"], "rejected", executed=tasks.now())
             runner.save(phase="work")
             return runner.finish("done", f"PR rejected; branch {task.get('branch')} stays pushed")
+        if item["action"] == "slack-reply":
+            payload = item["payload"]
+            approvals.mark(run_dir, item["id"], item["status"], executed=tasks.now())
+            if item["status"] == "approved":
+                note = runner.send_slack(payload)
+            else:
+                runner.save(slack_reply="not sent (rejected)")
+                note = "Slack reply not sent (rejected)"
+            runner.save(phase="work")
+            reason = payload.get("reason") or ""
+            return runner.finish("done", f"{reason}; {note}" if reason else note)
     return None

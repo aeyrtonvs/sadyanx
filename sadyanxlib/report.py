@@ -156,6 +156,9 @@ def write(task: Task, run_dir: Path, result: dict | None) -> Path:
             for key, title in (("unexpected", "Unexpected"), ("drift", "Drift (not from this change)")):
                 if plan.get(key):
                     lines += [f"{title}:", "", *[f"- {v}" for v in plan[key]], ""]
+            if plan.get("unplanned"):
+                lines += ["Not planned by this CI (check each in its own plan before it is applied):", "",
+                          *[f"- `{u.get('environment', '?')}`: {u.get('check', '')}" for u in plan["unplanned"]], ""]
             if plan.get("logs"):
                 lines.append(f"Plan logs: `{plan['logs']}`; the plan text in `plan.txt`.")
         lines.append("")
@@ -170,6 +173,13 @@ def write(task: Task, run_dir: Path, result: dict | None) -> Path:
             commits = []
         if commits:
             lines += ["## Commits", "", *[f"- {c}" for c in commits], ""]
+
+    if task.get("slack_channel"):
+        where = task.get("slack_channel") + (f", thread {task.get('slack_thread')}" if task.get("slack_thread") else "")
+        lines += ["## Slack reply", "", f"To {where}: {task.get('slack_reply') or 'not drafted yet'}.", ""]
+        reply_file = run_dir / "slack-reply.md"
+        if reply_file.exists():
+            lines += [*[f"> {line}" for line in reply_file.read_text(encoding="utf-8").strip().splitlines()], ""]
 
     items = approvals.load(run_dir)
     if items:

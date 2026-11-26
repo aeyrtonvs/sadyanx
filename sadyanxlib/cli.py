@@ -10,7 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import approvals, config, gitops, modes, net, paths, runner, sandbox, tasks, trust, usage
+from . import approvals, config, gitops, modes, net, paths, runner, sandbox, slack, tasks, trust, usage
 
 
 def die(msg: str, code: int = 1) -> None:
@@ -48,13 +48,21 @@ def cmd_add(a) -> None:
     if "acceptance criteria" not in body.lower():
         print("warning: the task has no '## Acceptance criteria' section; the agent will have nothing "
               "to prove it is done against.", file=sys.stderr)
+    channel = thread = ""
+    if a.slack:
+        try:
+            channel, thread = slack.parse_origin(a.slack)
+        except slack.OriginError as exc:
+            die(f"--slack: {exc}")
     meta = dict(type=a.type, repo=a.repo or "", source=a.source or ("jira" if a.jira else "adhoc"),
-                jira=a.jira or "", status=a.status, mode=modes.normalize(a.mode or cfg.defaults["mode"]),
+                jira=a.jira or "", slack_channel=channel, slack_thread=thread, status=a.status, mode=modes.normalize(a.mode or cfg.defaults["mode"]),
                 effort=a.effort or "",
                 budget_usd=a.budget if a.budget is not None else cfg.defaults["budget_usd"],
                 timeout_min=a.timeout if a.timeout is not None else cfg.defaults["timeout_min"])
     task = tasks.create(a.title, body, **meta)
     print(f"{task.id}\t{task.path}")
+    if channel:
+        print(f"reply on Slack: {slack.where(channel, thread)}, after your approval")
 
 
 def _find(ref: str) -> tasks.Task:
@@ -415,6 +423,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--type", choices=["code", "research"], default="code")
     s.add_argument("--repo")
     s.add_argument("--jira")
+    s.add_argument("--slack", metavar="LINK", help="the Slack message that asked for it (its link, or "
+                   "CHANNEL/TS): the agent drafts a reply and the harness sends it there after your approval")
     s.add_argument("--source", choices=["jira", "adhoc"])
     s.add_argument("--status", choices=["ready", "draft"], default="ready")
     s.add_argument("--budget", type=float, help="USD")

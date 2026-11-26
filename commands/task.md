@@ -73,6 +73,21 @@ that history in Notes and suggest an effort in the summary, as there.
 If a task is large (several independent deliverables), propose splitting it into smaller
 tasks, each with its own criteria, and create them separately.
 
+### When the request came from Slack
+
+If the work was asked for in a Slack message (I pasted it, quoted it or gave its link), the
+task replies there when it is done, after my approval:
+
+1. Get the message's link: the one I gave, or find the message with the Slack MCP
+   (`slack_search_public_and_private` with a few distinctive words from it, `include_context`
+   false). Tell me who sent it, where and when, and use it only if it is clearly the same
+   message; if you cannot find it, ask me for the link or create the task without a reply.
+2. Pass it as `sadyanx add ... --slack <link>`, and keep the message as written in the last
+   `## Ticket (verbatim)` section (author and date), like a ticket.
+3. Say in the summary that the agent drafts a reply in the `[slack]` format (greeting, body,
+   sign-off) and that it goes back to that conversation only on my yes. Do not send anything
+   to Slack yourself, now or later.
+
 ## `run <id> [!mode] [!effort] [watch|auto]`
 
 1. If the task has a `jira:` key and has never run (`attempts: 0` in `sadyanx show <id>`), move
@@ -90,6 +105,9 @@ tasks, each with its own criteria, and create them separately.
      repo) with exactly that command, and tell me the tab is there: questions and approvals
      come up in it, and I type `/exit` when the agent says it is done. If you cannot open a
      terminal tab, give me the command to run myself. Do not use `--auto` unless I ask.
+   - A task created with `--slack` asks before it ends: supervised, the tab shows the reply
+     and asks "Send this reply on Slack? [y/N]"; autonomous, it ends `needs-approval` with the
+     reply as the pending action. Tell me so.
    - On repos with `pr_review` or `pr_ci`, the run does not end when the PR opens: it waits
      for the external review comment and the PR's CI, the agent fixes what comes up, the
      harness pushes to the same PR and watches the CI again until it passes (on IaC repos the
@@ -114,7 +132,9 @@ Before approving, show me exactly which action will run (`sadyanx show <id>`, Ap
 section) and confirm with me. Then run `sadyanx approve <id> <ids>` or
 `sadyanx reject <id> <ids> --reason "<reason>"`. Approving a work PR on a repo with `pr_review`
 or `pr_ci` opens it and starts a background run that applies the external review and watches
-the PR's CI until the PR is ready for my review.
+the PR's CI until the PR is ready for my review. For a Slack reply (`slack-reply`), show me
+the whole message and where it goes, as `sadyanx show` prints it; approving sends exactly that
+text, rejecting sends nothing.
 
 ## No arguments
 

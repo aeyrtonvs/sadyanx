@@ -30,6 +30,8 @@
 #   aws_profile        the aws CLI profile the harness (never the agent) reads it with
 #   aws_region         optional; default: the profile's
 #   plan_check true | false (IaC): check that the CI's terraform plan is the change the task asked for
+#   plan_envs  the environments the PR's CI plans (e.g. ["test"]); a changed environment outside
+#              it is noted for review, not blocking. Empty = not declared: every missing plan blocks
 
 # --- examples: uncomment and adapt -------------------------------------------------------
 
@@ -72,3 +74,4 @@
 # codebuild_initiator = "codepipeline/infra-pr-{base}"
 # aws_profile = "ci-reader"
 # plan_check = true
+# plan_envs = ["test"]  # the PR build into develop plans test; prod is planned on master

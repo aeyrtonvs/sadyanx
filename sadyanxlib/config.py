@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import paths
+from .slack import SLACK_DEFAULTS
 from .modes import ORDER, Mode, normalize, resolve
 
 DEFAULTS = {
@@ -70,6 +71,7 @@ class Repo:
     codebuild_initiator: str = ""  # who starts its PR builds (e.g. codepipeline/<pipeline>); {base} as above
     aws_region: str = ""  # empty = the profile's region
     plan_check: bool = False  # IaC: check that the CI's terraform plan is the change the task asked for
+    plan_envs: list[str] = field(default_factory=list)  # the environments the PR's CI plans; empty = not declared
 
 
 @dataclass
@@ -82,6 +84,7 @@ class Config:
     sandbox: dict = field(default_factory=dict)
     pr_review: dict = field(default_factory=lambda: dict(PR_REVIEW_DEFAULTS))
     pr_ci: dict = field(default_factory=lambda: dict(PR_CI_DEFAULTS))
+    slack: dict = field(default_factory=lambda: dict(SLACK_DEFAULTS))
 
     def mode(self, name: str | None = None, effort: str | None = None) -> "Mode":
         return resolve(name or self.defaults["mode"], self.modes, effort)
@@ -155,6 +158,7 @@ def load() -> Config:
             codebuild_initiator=r.get("codebuild_initiator", ""),
             aws_region=r.get("aws_region", ""),
             plan_check=r.get("plan_check", False),
+            plan_envs=r.get("plan_envs", []),
         )
         repo = repos[name]
         for key in ("pr_review", "plan_check"):
@@ -172,6 +176,11 @@ def load() -> Config:
             raise ConfigError(f"repos.{name}.pr_ci = \"codebuild\" needs codebuild_project and aws_profile")
         if repo.plan_check and not repo.pr_ci:
             raise ConfigError(f"repos.{name}.plan_check needs pr_ci (the plan is read from the PR's CI)")
+        if not (isinstance(repo.plan_envs, list)
+                and all(isinstance(e, str) and e.strip() == e and e for e in repo.plan_envs)):
+            raise ConfigError(f"repos.{name}.plan_envs must be a list of environment names (e.g. [\"test\"])")
+        if repo.plan_envs and not repo.plan_check:
+            raise ConfigError(f"repos.{name}.plan_envs needs plan_check (it tells the plan check what the CI plans)")
         if repos[name].run_mode and repos[name].run_mode not in RUN_MODES:
             raise ConfigError(f"repos.{name}.run_mode must be 'supervised' or 'autonomous'")
         if repos[name].code_review and repos[name].code_review not in REVIEW_LEVELS:
@@ -187,7 +196,17 @@ def load() -> Config:
         sandbox=main.get("sandbox", {}),
         pr_review={**PR_REVIEW_DEFAULTS, **main.get("pr_review", {})},
         pr_ci={**PR_CI_DEFAULTS, **main.get("pr_ci", {})},
+        slack={**SLACK_DEFAULTS, **main.get("slack", {})},
     )
+    unknown = set(cfg.slack) - set(SLACK_DEFAULTS)
+    if unknown:
+        raise ConfigError(f"sadyanx.toml [slack]: unknown keys {', '.join(sorted(unknown))}")
+    for key in ("greeting", "sign_off", "language", "send_tool"):
+        if not (isinstance(cfg.slack[key], str) and cfg.slack[key].strip()):
+            raise ConfigError(f"sadyanx.toml [slack]: {key} must be a non-empty string")
+    if not (isinstance(cfg.slack["max_chars"], int) and not isinstance(cfg.slack["max_chars"], bool)
+            and 200 <= cfg.slack["max_chars"] <= 3900):
+        raise ConfigError("sadyanx.toml [slack]: max_chars must be a whole number, 200 to 3900")
     unknown = set(cfg.pr_ci) - set(PR_CI_DEFAULTS)
     if unknown:
         raise ConfigError(f"sadyanx.toml [pr_ci]: unknown keys {', '.join(sorted(unknown))}")

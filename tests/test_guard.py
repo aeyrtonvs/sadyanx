@@ -231,6 +231,7 @@ class TestOtherTools(unittest.TestCase):
         self.assertEqual(t("mcp__claude_ai_Claude_Docs__batch").kind, ALLOW)
         self.assertEqual(t("mcp__claude_ai_Claude_Docs__delete").kind, GATE)
         self.assertEqual(t("mcp__claude_ai_Slack__send_message").kind, GATE)
+        self.assertEqual(t("mcp__claude_ai_Slack__slack_send_message").kind, DENY)  # the harness sends replies
         self.assertEqual(t("mcp__plugin_context7_context7__query-docs").kind, ALLOW)
         self.assertEqual(guard.decide("mcp__x__createThing", {}, WT, ctx(mcp_allow=[r"mcp__x__.*"])).kind, ALLOW)
 
@@ -248,6 +249,65 @@ class TestOtherTools(unittest.TestCase):
             self.assertEqual(guard.decide(name, {}, WT, ctx()).kind, DENY)
         self.assertEqual(guard.decide("WebFetch", {"url": "https://x"}, WT, ctx()).kind, ALLOW)
         self.assertEqual(guard.decide("Artifact", {"action": "delete"}, WT, ctx()).kind, GATE)
+
+
+SLACK = "mcp__claude_ai_Slack__"
+SEND = SLACK + "slack_send_message"
+PIN = {"tool": r"mcp__claude_ai_Slack__slack_send_message",
+       "input": {"channel_id": "D0123ABCD", "message": "Hola!\n\nListo.\n\nSaludos."}}
+
+
+class TestMcpPrefixedOperations(unittest.TestCase):
+    """Servers that prefix every operation with their own name (slack_send_message) must not
+    hide the verb from the write check. Regression: Slack writes were allowed unapproved."""
+
+    def kind(self, name: str, c: Ctx | None = None, tool_input: dict | None = None) -> str:
+        return guard.decide(name, tool_input or {}, WT, c or ctx()).kind
+
+    def test_reads_are_allowed(self):
+        for op in ["slack_read_channel", "slack_read_thread", "slack_search_public", "slack_search_users",
+                   "slack_read_list_comments", "slack_read_user_profile", "slack_list_channel_members",
+                   "slack_get_reactions", "slack_read_canvas"]:
+            with self.subTest(op=op):
+                self.assertEqual(self.kind(SLACK + op), ALLOW)
+
+    def test_prefixed_writes_are_gated(self):
+        for op in ["slack_send_message_draft", "slack_create_canvas", "slack_update_canvas", "slack_add_reaction",
+                   "slack_create_conversation", "slack_add_list_record", "slack_update_list_comment",
+                   "slack_complete_file_upload"]:
+            with self.subTest(op=op):
+                self.assertEqual(self.kind(SLACK + op), GATE)
+        self.assertEqual(self.kind("mcp__x__repo_delete_branch"), GATE)
+        self.assertEqual(guard.decide("mcp__x__repo_delete_branch", {}, WT, ctx()).category, "destructive")
+
+    def test_agents_never_send_or_schedule_slack_messages(self):
+        for op in ["slack_send_message", "slack_schedule_message", "SLACK_SEND_MESSAGE"]:
+            with self.subTest(op=op):
+                v = guard.decide(SLACK + op, {"channel_id": "C1", "message": "hi"}, WT, ctx())
+                self.assertEqual(v.kind, DENY)
+                self.assertIn("reply", v.reason)
+        # not even with mcp_allow: a reply goes through the harness, formatted and approved
+        self.assertEqual(self.kind(SEND, ctx(mcp_allow=[r"mcp__claude_ai_Slack__.*"])), DENY)
+
+    def test_no_false_positives_on_read_verbs_followed_by_write_words(self):
+        for name in ["mcp__x__list_merge_requests", "mcp__x__list_comments", "mcp__x__get_transitions",
+                     "mcp__x__search_deploy_logs", "mcp__x__query", "mcp__claude_ai_Atlassian__getJiraIssue",
+                     "mcp__plugin_context7_context7__query-docs", "mcp__plugin_context7_context7__resolve-library-id"]:
+            with self.subTest(name=name):
+                self.assertEqual(self.kind(name), ALLOW)
+
+    def test_pinned_call_is_allowed_only_with_exactly_its_input(self):
+        c = ctx(pinned_calls=[PIN])
+        exact = dict(PIN["input"])
+        self.assertEqual(self.kind(SEND, c, exact), ALLOW)
+        self.assertEqual(self.kind(SEND, c, {**exact, "thread_ts": "", "reply_broadcast": False}), ALLOW)  # empties
+        for changed in [{**exact, "message": exact["message"] + " "}, {**exact, "channel_id": "C0999ZZZZ"},
+                        {**exact, "thread_ts": "1700000000.123456"}, {**exact, "reply_broadcast": True},
+                        {"channel_id": "D0123ABCD"}]:
+            with self.subTest(changed=changed):
+                self.assertEqual(self.kind(SEND, c, changed), DENY)
+        self.assertEqual(self.kind(SLACK + "slack_schedule_message", c, exact), DENY)  # another tool
+        self.assertEqual(self.kind(SEND, ctx(), exact), DENY)  # no pin, no send
 
 
 class TestHookProtocol(unittest.TestCase):
@@ -490,6 +550,42 @@ class TestReviewHook(TestHookProtocol):
         for cmd in ["git push", "cat .env", "echo x > /etc/hosts"]:
             with self.subTest(cmd=cmd):
                 self.assertEqual(self.call("Bash", {"command": cmd})["permissionDecision"], "deny")
+
+
+class TestSlackSendHook(unittest.TestCase):
+    """The harness's Slack send session: nothing approvable, except the one approved message."""
+
+    tearDown = TestHookProtocol.tearDown
+    call = TestHookProtocol.call
+
+    def setUp(self):
+        TestHookProtocol.setUp(self)
+        ctx_file = Path(self.tmp.name) / "guard.json"
+        ctx_file.write_text(json.dumps({**json.loads(ctx_file.read_text()), "deny_gated": True,
+                                        "write_roots": [], "pinned_calls": [PIN]}))
+
+    def test_gated_actions_are_denied_not_parked(self):
+        out = self.call("Bash", {"command": "firebase deploy"})
+        self.assertEqual(out["permissionDecision"], "deny")
+        self.assertEqual(approvals.load(self.run_dir), [])
+
+    def test_the_approved_message_goes_through_once_and_is_audited(self):
+        self.assertIsNone(self.call(SEND, dict(PIN["input"])))
+        audit = [json.loads(x) for x in (self.run_dir / "audit.jsonl").read_text().splitlines()]
+        self.assertEqual((audit[-1]["verdict"], audit[-1]["category"]), ("allow", "pinned"))
+
+    def test_any_other_message_or_slack_write_is_denied(self):
+        for tool, tool_input in [(SEND, {**PIN["input"], "message": "Hola!\n\nOtra cosa.\n\nSaludos."}),
+                                 (SEND, {**PIN["input"], "channel_id": "C0999ZZZZ"}),
+                                 (SLACK + "slack_send_message_draft", dict(PIN["input"])),
+                                 (SLACK + "slack_add_reaction", {"channel_id": "D0123ABCD", "name": "ok"}),
+                                 ("Write", {"file_path": str(self.wt / "x.txt"), "content": "x"})]:
+            with self.subTest(tool=tool, tool_input=tool_input):
+                self.assertEqual(self.call(tool, tool_input)["permissionDecision"], "deny")
+        self.assertEqual(approvals.load(self.run_dir), [])  # nothing parked
+
+    def test_finding_the_tool_is_allowed(self):
+        self.assertIsNone(self.call("ToolSearch", {"query": "slack_send_message"}))
 
 
 class TestCtx(unittest.TestCase):

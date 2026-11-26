@@ -58,6 +58,9 @@ class Ctx:
     max_identical_calls: int = 3  # consecutive identical calls before the guard steps in; 0 = off
     interactive: bool = False  # supervised run: a human watches the session and answers prompts
     deny_gated: bool = False   # a helper session (the code review): approvable actions are simply denied
+    # calls a human already approved in full, allowed only with exactly this input:
+    # [{"tool": <regex on the tool name>, "input": {...}}] (the harness's Slack send session)
+    pinned_calls: list[dict] = field(default_factory=list)
     home: str = str(Path.home())
 
     @classmethod
@@ -197,9 +200,12 @@ WRITE_EDIT_TOOLS = {"Edit": "file_path", "Write": "file_path", "MultiEdit": "fil
 MCP_WRITE_OP = re.compile(
     r"^(?:add|create|edit|update|delete|remove|send|post|publish|transition|reply|comment|upload|share|invite"
     r"|merge|approve|assign|move|archive|set|write|put|patch|close|reopen|submit|batch|draft|schedule|cancel"
-    r"|resolve|link|unlink|import|execute|run|trigger|deploy|certify|uncertify|unshare)",
+    r"|resolve|link|unlink|import|execute|run|trigger|deploy|certify|uncertify|unshare|complete)",
     re.I,
 )
+# An operation that starts with a read verb is a read, whatever words follow (list_merge_requests).
+MCP_READ_OP = re.compile(r"^(?:get|list|read|search|query|fetch|find|lookup|describe|view|show|count|export"
+                         r"|guide)(?:_|[A-Z]|$)", re.I)
 MCP_DESTRUCTIVE_OP = re.compile(r"^(?:delete|remove|archive|unshare|uncertify)", re.I)
 
 DEFAULT_MCP_ALLOW = [
@@ -209,6 +215,10 @@ DEFAULT_MCP_ALLOW = [
     r"mcp__claude_ai_Claude_Docs__(?:create|batch|update|guide|read|query|export)",
     r"mcp__plugin_context7_context7__.*",
 ]
+
+# Sending (or scheduling) a Slack message as you. Agents never do it: a reply goes in the
+# result and the harness sends it after approval, in its own session, pinned to that exact call.
+SLACK_MESSAGE_TOOL = re.compile(r"^mcp__.*__slack_(?:send|schedule)_message$", re.I)
 
 HEREDOC = re.compile(r"<<-?[ \t]*(['\"]?)(\w+)\1([^\n]*)\n(.*?)\n[ \t]*\2[ \t]*(?=\n|$|\))", re.S)
 REDIRECT = re.compile(r"(?<![<\d&>])\d?>>?\|?\s*([^\s;&|<>()]+)")
@@ -520,15 +530,41 @@ def check_bash(cmd: str, cwd: str, ctx: Ctx) -> Verdict:
     return verdict
 
 
-def check_mcp(tool: str, ctx: Ctx) -> Verdict:
+def _mcp_ops(op: str) -> list[str]:
+    """The operation name, and the same without its first word: some servers prefix every
+    operation with their own name (`slack_send_message`), which would hide the verb from a
+    check anchored at the start. Checking both fails closed."""
+    ops = [op]
+    if "_" in op.strip("_") and not MCP_READ_OP.match(op):
+        ops.append(op.strip("_").split("_", 1)[1])
+    return ops
+
+
+def _same_input(given: dict, expected: dict) -> bool:
+    """Exact match, except that keys left empty (None, "", false) count as absent."""
+    def clean(d: dict) -> dict:
+        return {k: v for k, v in (d or {}).items() if v not in (None, "", False)}
+    return clean(given) == clean(expected)
+
+
+def check_mcp(tool: str, ctx: Ctx, tool_input: dict | None = None) -> Verdict:
+    for pin in ctx.pinned_calls:
+        if re.fullmatch(str(pin.get("tool", "")), tool) and _same_input(tool_input or {}, pin.get("input") or {}):
+            return Verdict(ALLOW, "pinned", "the exact call a human approved")
+    if SLACK_MESSAGE_TOOL.search(tool):
+        return Verdict(DENY, "slack", "agents do not send Slack messages. Write the reply to whoever asked in "
+                                      "your result's `reply` field; the harness formats it, shows it to your user "
+                                      "and sends it only if they approve")
     for pattern in DEFAULT_MCP_ALLOW + ctx.mcp_allow:
         if re.fullmatch(pattern, tool):
             return Verdict(ALLOW)
-    op = tool.rsplit("__", 1)[-1]
-    if MCP_DESTRUCTIVE_OP.match(op):
-        return Verdict(GATE, "destructive", f"destructive operation on an external service ({op})")
-    if MCP_WRITE_OP.match(op):
-        return Verdict(GATE, "third-party", f"write visible to other people ({op})")
+    ops = _mcp_ops(tool.rsplit("__", 1)[-1])
+    for op in ops:
+        if MCP_DESTRUCTIVE_OP.match(op):
+            return Verdict(GATE, "destructive", f"destructive operation on an external service ({ops[0]})")
+    for op in ops:
+        if MCP_WRITE_OP.match(op):
+            return Verdict(GATE, "third-party", f"write visible to other people ({ops[0]})")
     return Verdict(ALLOW)
 
 
@@ -537,7 +573,7 @@ def decide(tool: str, tool_input: dict, cwd: str, ctx: Ctx) -> Verdict:
     if tool in FORBIDDEN_TOOLS:
         return Verdict(DENY, "forbidden", FORBIDDEN_TOOLS[tool])
     if tool.startswith("mcp__"):
-        return check_mcp(tool, ctx)
+        return check_mcp(tool, ctx, tool_input)
     if tool == "Bash":
         if tool_input.get("dangerouslyDisableSandbox"):
             return Verdict(DENY, "sandbox", "commands may not run outside the sandbox; run it normally, and if "

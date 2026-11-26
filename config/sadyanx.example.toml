@@ -68,6 +68,19 @@ start_min = 10                      # no run for the new commit by then: you are
 max_rounds = 3                      # fix rounds before the harness stops and hands the PR to you
 ready_jira_status = "CODE REVIEW"   # "" leaves the ticket where it is
 
+# Replies on Slack to whoever asked for a task (tasks created with `--slack <message link>`).
+# The agent drafts only the body; the harness wraps it as greeting + body + sign-off, shows it to
+# you and sends it only on your yes (supervised: asked in the tab; autonomous: `sadyanx approve`).
+# It goes back where the request came from: the same direct message, or the request's thread.
+[slack]
+greeting = "Hi!"            # the first line of every reply
+sign_off = "Regards."         # the last line
+language = "English"         # the language the agent writes the body in
+max_chars = 3500            # a longer body is not sent (you get its text to send by hand)
+# The claude.ai Slack connector's send tool as Claude Code names it (a regex). The send session
+# may call only this tool, once, with exactly the text you approved.
+send_tool = "mcp__claude_ai_Slack__slack_send_message"
+
 [notify]
 macos = true             # macOS banner
 sound = "Glass"

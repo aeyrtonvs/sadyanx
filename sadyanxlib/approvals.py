@@ -157,8 +157,12 @@ def mark(run_dir: Path, aid: str, status: str, **extra) -> None:
 def describe(item: dict) -> str:
     if item["kind"] == "harness":
         what = item.get("action", "")
-        title = (item.get("payload") or {}).get("title", "")
-        return f"[{item['id']}] {item['category']}: {what} — {title}"
+        payload = item.get("payload") or {}
+        if what == "slack-reply":  # the whole message: what you approve is exactly what is sent
+            where = payload.get("channel", "?") + (f" (thread {payload['thread']})" if payload.get("thread") else "")
+            text = "\n".join("    " + line for line in str(payload.get("text", "")).splitlines())
+            return f"[{item['id']}] {item['category']}: reply on Slack to {where}:\n{text}"
+        return f"[{item['id']}] {item['category']}: {what} — {payload.get('title', '')}"
     if item["tool"] == "Bash":
         what = _norm_cmd(str(item["input"].get("command", "")))
     else:

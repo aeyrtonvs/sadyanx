@@ -19,6 +19,7 @@
 | Size | Mixed: big ones get split (planner) |
 | Memory | Per-repo learnings, task history, my preferences |
 | Notifications | Push, per-task report, daily digest |
+| Slack | A task from a Slack request replies there, formatted, only after my approval (D26) |
 | Research | The report goes to Claude Docs |
 | Language | Everything in the harness is in English |
 | Models | Modes instead of models (ultra/smart/balanced/cheap); default smart; `!deep`/`!fast` when creating or running; effort apart with `!xhigh`/`!max`... |
@@ -355,6 +356,13 @@ limits. Decided with me 2026-11-18:
   asked for, a missing plan where the diff should give one) and as `drift` what changed outside
   Terraform. Unexpected → `blocked`, nothing is "fixed"; drift alone is only reported; a check
   that fails gives no verdict → `blocked` (fail closed). No resource type stops it by itself.
+  A CI that plans only some environments (e.g. the PR build into `develop` plans `test`, and
+  `prod` is planned only on `master`) declares them in the repo's `plan_envs`. An environment
+  outside that list that the diff changes goes in `unplanned` (what to check in its own plan):
+  shown in the report and the ready note, not blocking. The harness keeps an `unplanned` entry
+  only for an environment the config says the CI does not plan; without `plan_envs`, or for a
+  planned environment, it becomes `unexpected` (fail closed). A change the diff explains is not
+  unexpected because the task named another environment (a shared module changes them all).
   After a review round the plan is checked on the new commit only.
 - **Ready.** The ticket moves to `ready_jira_status` (`CODE REVIEW` by default, through whatever
   transition the issue offers into it) in a short headless session in cheap mode whose only
@@ -375,6 +383,44 @@ and the repo ships `config/sadyanx.example.toml` (also the fallback when there i
 `sadyanx.toml`) and `config/repos.example.toml`, which `sadyanx install` copies into place. Docs and
 tests use generic names (PROJ-1234, work-api); the real measurements behind D22-D24 keep their
 numbers but not the employer's names.
+
+**D26 — A reply on Slack to whoever asked, sent by the harness after my yes.** Many requests
+arrive as a Slack message, and the answer goes back there. Decided with me 2026-11-26:
+- **Where it goes: only where the request came from.** `/task` passes the message's link
+  (`sadyanx add --slack <link>`); the task keeps `slack_channel` and `slack_thread`. In a direct
+  message the reply is a plain message in the same conversation (or in the thread, if the request
+  was in one); in a channel it is always a reply in the request's thread. No other recipient.
+- **Who writes what.** The agent writes only the body, in the result's `reply` field, in
+  `[slack] language` (prompt `reply.md`, added to the first prompt only for these tasks). The
+  harness adds the format: `greeting`, the body, `sign_off` (mine: "Hola!" ... "Saludos."),
+  dropping a greeting or sign-off the agent wrote anyway. Empty or over `max_chars` → not sent,
+  and said so in the reason. Only a task that ends `done` replies.
+- **Who sends it: the harness, on my yes.** Supervised: the rendered message is printed in the
+  tab with "Send this reply on Slack? [y/N]". Otherwise it is parked as a harness approval
+  (`slack-reply`, phase `reply`) whose description is the whole message, so `/task approve` shows
+  exactly what goes out. Rejecting sends nothing and ends the task `done`.
+- **How it is sent.** A short headless session (cheap mode, `ToolSearch` and the MCP servers only,
+  no session persistence, a temp dir as cwd, $0.30 cap) with its own guard context: nothing
+  writable, nothing approvable (`deny_gated`), and one **pinned call**: `[slack] send_tool` with
+  exactly the approved channel, thread and text (keys left empty count as absent). Any other
+  text, channel or Slack write is denied, and a second identical send is cut off by the repeat
+  cap. The harness counts it as sent only if the session says so **and** the audit shows the
+  guard let the pinned call through. A failure does not undo the task: the text stays in
+  `runs/<id>/slack-reply.md` to send by hand. Usage records phase `slack`.
+- **Agents never send Slack messages.** `slack_send_message` and `slack_schedule_message` are
+  denied to every agent (not gated, not allowable with `mcp_allow`): a reply would skip the format
+  and the review. Other Slack writes (reactions, canvases, drafts, uploads) are gated as usual.
+- **Fixed on the way: prefixed MCP operations.** The write check matched the operation's first
+  word, and the Slack connector names every operation `slack_<verb>_...`, so Slack writes were
+  allowed with no approval. Now an operation is also checked without its first word, unless it
+  starts with a read verb (`list_merge_requests` stays a read), and `complete` counts as a write
+  (`slack_complete_file_upload` posts a file).
+- **Rejected: a Slack token in the keychain and the Web API.** It would post as a bot (or need a
+  user token I would have to mint and guard); the claude.ai connector already posts as me, like
+  the Jira move in D23.
+- **Tested** 2026-11-26: the send session posted to my own DM in 8 s for $0.003 (Haiku); the
+  tool is `mcp__claude_ai_Slack__slack_send_message`, and the audit shows `ToolSearch`, the pinned
+  send and the result, nothing else. Not yet: a real task drafting its own reply.
 
 ## Known limits
 
@@ -398,7 +444,8 @@ numbers but not the employer's names.
   was checked against real PR builds (finding the build, its log and plan). **Not
   yet tested against real services**: opening a PR on GitHub, the Bitbucket Pipelines API (the
   token lacked `read:pipeline` when it was written), both reruns, the Jira move to Code Review,
-  and the research report in Claude Docs. Watch the first real task of each kind.
+  the research report in Claude Docs, and a real task's Slack reply (D26; the send itself was
+  tested). Watch the first real task of each kind.
 
 ## Iteration 2
 

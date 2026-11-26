@@ -27,10 +27,10 @@ STATUSES = (
 )
 
 FIELD_ORDER = [
-    "id", "title", "type", "repo", "source", "jira", "status", "phase",
+    "id", "title", "type", "repo", "source", "jira", "slack_channel", "slack_thread", "status", "phase",
     "model", "effort", "budget_usd", "timeout_min",
     "branch", "worktree", "session_id", "attempts", "rework", "cost_usd",
-    "pr_url", "doc_url", "report", "reason",
+    "pr_url", "doc_url", "slack_reply", "report", "reason",
     "created", "updated",
 ]
 

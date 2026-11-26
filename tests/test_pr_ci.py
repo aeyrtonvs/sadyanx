@@ -158,6 +158,15 @@ class TestCiPasses(CiCase):
         m["jira"].assert_not_called()
         self.assertEqual(self.saved_task().get("phase"), "pr-review")  # a rerun checks again
 
+    def test_environments_the_ci_does_not_plan_are_noted_not_blocking(self):
+        self.repo.plan_check, self.repo.plan_envs = True, ["test"]
+        verdict = {"expected": True, "unexpected": [], "drift": [], "summary": "ok", "changes": [],
+                   "unplanned": [{"environment": "prod", "check": "adds the proxy alarms"}]}
+        status, m = self.follow([run("passed")], plan=lambda *a: verdict)
+        self.assertEqual(status, "done")
+        self.assertIn("not planned by this CI: prod", self.reason())
+        m["jira"].assert_called_once()
+
     def test_a_plan_that_cannot_be_checked_is_not_ready(self):
         self.repo.plan_check = True
         status, m = self.follow([run("passed")], plan=lambda *a: None)
@@ -394,6 +403,46 @@ class TestPlanCheck(CiCase):
         self.assertIn("### Plan check: as expected", text)
         self.assertIn("| `module.x.datadog_monitor.m` | create | main.tf |", text)
 
+    def test_the_checker_is_told_which_environments_the_ci_plans(self):
+        out = {"structured_output": {"expected": True, "summary": "", "unexpected": [], "drift": [],
+                                     "changes": [], "unplanned": []}}
+        _, sp = self.check(json.dumps(out))
+        args = sp.call_args.args[0]
+        self.assertIn("are not declared", args[args.index("-p") + 1])
+        self.repo.plan_envs = ["test"]
+        _, sp = self.check(json.dumps(out))
+        args = sp.call_args.args[0]
+        self.assertIn("This CI plans only these environments: `test`", args[args.index("-p") + 1])
+        self.assertIn('"unplanned"', args[args.index("--json-schema") + 1])
+
+    def test_unplanned_is_kept_only_for_environments_declared_unplanned(self):
+        def verdict_for(*unplanned):
+            out = {"structured_output": {"expected": True, "summary": "", "unexpected": [], "drift": [],
+                                         "changes": [], "unplanned": list(unplanned)}}
+            return self.check(json.dumps(out))[0]
+
+        prod = {"environment": "prod", "check": "the new alarms"}
+        # Nothing declared: a missing plan is never waved through.
+        verdict = verdict_for(prod)
+        self.assertFalse(verdict["expected"])
+        self.assertEqual(verdict["unplanned"], [])
+        self.assertIn("no plan for `prod`", verdict["unexpected"][0])
+        self.repo.plan_envs = ["test"]
+        verdict = verdict_for(prod)
+        self.assertTrue(verdict["expected"])
+        self.assertEqual(verdict["unplanned"], [prod])
+        saved = json.loads((self.r.run_dir / "plan-check.json").read_text())
+        self.assertEqual(saved["unplanned"], [prod])
+        report.write(self.task, self.r.run_dir, None)
+        self.assertIn("- `prod`: the new alarms", (self.r.run_dir / "report.md").read_text())
+        # An environment the CI does plan, an empty name or a malformed entry: unexpected.
+        for bad in ({"environment": "test", "check": "x"}, {"environment": " ", "check": "x"}, "prod"):
+            with self.subTest(bad=bad):
+                verdict = verdict_for(prod, bad)
+                self.assertFalse(verdict["expected"])
+                self.assertEqual(verdict["unplanned"], [prod])
+                self.assertEqual(len(verdict["unexpected"]), 1)
+
     def test_a_broken_checker_gives_no_verdict(self):
         verdict, _ = self.check("not json")
         self.assertIsNone(verdict)
@@ -593,8 +642,9 @@ class TestConfig(unittest.TestCase):
         self.assertEqual((cfg.repos["a"].pr_ci, cfg.repos["a"].plan_check), ("", False))
         cfg = self.load('[pr_ci]\nmax_rounds = 5\nready_jira_status = ""\n', self.BASE + (
             'pr_ci = "codebuild"\ncodebuild_project = "p-{base}"\ncodebuild_initiator = "codepipeline/pr-{base}"\n'
-            'aws_profile = "prof"\nplan_check = true\n'))
+            'aws_profile = "prof"\nplan_check = true\nplan_envs = ["test"]\n'))
         a = cfg.repos["a"]
+        self.assertEqual(a.plan_envs, ["test"])
         self.assertEqual((cfg.pr_ci["max_rounds"], cfg.pr_ci["ready_jira_status"]), (5, ""))
         reader = ci.reader(a, "git@bitbucket.org:ws/a.git", "develop")
         self.assertEqual((reader.project, reader.initiator, reader.profile), ("p-develop", "codepipeline/pr-develop", "prof"))
@@ -610,6 +660,11 @@ class TestConfig(unittest.TestCase):
                 ("", self.BASE + 'pr_ci = "pipelines"\nbitbucket_keychain = "k"\npublish = "push"\n'),
                 ("", self.BASE + 'plan_check = true\n'),                                    # no CI to read
                 ("", self.BASE + 'plan_check = "yes"\n'),
+                ("", self.BASE + 'plan_envs = ["test"]\n'),                                 # no plan check
+                ("", self.BASE + 'pr_ci = "pipelines"\nbitbucket_keychain = "k"\nplan_check = true\n'
+                                 'plan_envs = "test"\n'),
+                ("", self.BASE + 'pr_ci = "pipelines"\nbitbucket_keychain = "k"\nplan_check = true\n'
+                                 'plan_envs = [""]\n'),
                 ('[pr_ci]\nmax_rounds = 0\n', ""),
                 ('[pr_ci]\nmax_rounds = 2.5\n', ""),
                 ('[pr_ci]\nstart_min = 40\n', ""),                                         # beyond wait_min
