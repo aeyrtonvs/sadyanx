@@ -13,7 +13,7 @@ import datetime as dt
 import json
 from collections import Counter, defaultdict
 
-from . import approvals, paths, runner, tasks, usage
+from . import approvals, paths, persona, runner, tasks, usage
 
 TASK_FIELDS = ("title", "status", "type", "repo", "mode", "effort", "phase", "attempts", "cost_usd",
                "jira", "pr_url", "doc_url", "report", "reason", "created", "updated")
@@ -57,20 +57,37 @@ def _task_row(t: tasks.Task) -> dict:
     return row
 
 
+def mood(kill_switch: bool, pending: int, running: int) -> tuple[str, int]:
+    """Which persona line fits the harness right now, and its $n."""
+    if kill_switch:
+        return "kill-switch", 0
+    if pending:
+        return "waiting", pending
+    if running:
+        return "working", running
+    return "idle", 0
+
+
 def snapshot(days: int) -> dict:
     rows = tasks.all_tasks()
     for t in rows:
         runner.recover_stale(t)
     task_rows = [_task_row(t) for t in rows]
     task_rows.sort(key=lambda r: r.get("updated") or r.get("created") or "", reverse=True)
+    kill = paths.kill_file().exists()
+    running = [r["id"] for r in task_rows if r["status"] in ("running", "verifying")]
+    pending = sum(len(r["pending"]) for r in task_rows)
+    p = persona.load()
+    event, n = mood(kill, pending, len(running))
     return {
         "generated": tasks.now(),
         "root": str(paths.root()),  # task `report` paths are relative to it
         "days": days,
-        "kill_switch": paths.kill_file().exists(),
+        "kill_switch": kill,
+        "persona": {"name": p.name, "line": p.line(event, n=n)} if p else None,
         "counts": dict(Counter(r["status"] for r in task_rows)),
-        "running": [r["id"] for r in task_rows if r["status"] in ("running", "verifying")],
-        "pending_approvals": sum(len(r["pending"]) for r in task_rows),
+        "running": running,
+        "pending_approvals": pending,
         "tasks": task_rows,
         "guard": guard_summary(days),
         "usage": usage.summarize(days),
@@ -86,7 +103,9 @@ def render(days: int) -> str:
     counts = ", ".join(f"{n} {k}" for k, n in sorted(s["counts"].items())) or "no tasks"
     v = s["guard"]["verdicts"]
     u = s["usage"]["total"]
-    lines = [
+    voice = s["persona"]
+    lines = [f"{voice['name']}: {voice['line']}"] if voice and voice["line"] else []
+    lines += [
         f"kill switch: {'ON' if s['kill_switch'] else 'off'}",
         f"tasks: {counts}",
         f"running: {', '.join(s['running']) or 'nothing'}",

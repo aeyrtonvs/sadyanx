@@ -25,7 +25,7 @@ import uuid
 from pathlib import Path
 from string import Template
 
-from . import approvals, ci, config, gitops, modes, notify, paths, report, sandbox, slack, tasks, trust
+from . import approvals, ci, config, gitops, modes, notify, paths, persona, report, sandbox, slack, tasks, trust
 from .tasks import Task
 
 CI_CAUSES = ["change", "transient", "outside"]
@@ -441,8 +441,9 @@ class Runner:
     def spent(self) -> float:
         return self.task.num("cost_usd")
 
-    def notify(self, title: str, message: str) -> None:
-        notify.send(title, message, self.cfg.notify, log=self.log)
+    def notify(self, title: str, message: str, event: str = "", **fields) -> None:
+        voice = persona.line(event, id=self.task.id, title=self.task.title, **fields) if event else ""
+        notify.send(title, message, self.cfg.notify, log=self.log, subtitle=voice)
 
     def finish(self, status: str, reason: str = "", result: dict | None = None, rework: bool = True) -> str:
         if status == "done" and self.task.get("slack_channel") and not self.task.get("slack_reply"):
@@ -464,7 +465,8 @@ class Runner:
             detail += f" — {reason}"
         if self.task.get("pr_url"):
             detail += f" — {self.task.get('pr_url')}"
-        self.notify(headline, detail)
+        self.notify(headline, detail, event=status, reason=reason, pr=self.task.get("pr_url"),
+                    n=len(approvals.pending(self.run_dir)))
         self.log(f"final status: {status} {reason}".strip())
         return status
 
@@ -1188,7 +1190,7 @@ class Runner:
                     if out["login"] and not told_login:
                         told_login = True
                         self.notify(f"🔑 {self.task.id} needs you", f"{self.task.title} — log in so the harness can "
-                                    f"read the PR's CI: {out['login']}")
+                                    f"read the PR's CI: {out['login']}", event="login")
                         if self.supervised:
                             print(f"\nsadyanx: to read the CI, log in again in another terminal: {out['login']}\n",
                                   flush=True)

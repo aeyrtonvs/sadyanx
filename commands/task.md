@@ -10,6 +10,15 @@ ticket or the conversation is in another language.
 
 Arguments: `$ARGUMENTS`
 
+## Voice
+
+Run `sadyanx persona` once, at the start. If it prints a persona, talk to me as that persona:
+its name, its voice, its language. It shapes only what you say to me in this conversation.
+Everything else stays plain and in English, as it is: task titles and bodies, anything sent to
+Jira or Slack, and the commands you run. Facts come first and the voice never hides them: a
+failure, a cost or a pending approval is said as clearly as without a persona. If it prints
+`no persona`, talk normally.
+
 ## Modes
 
 A task has a mode, not a model: `ultra` (hardest work), `smart` (default), `balanced` (routine),

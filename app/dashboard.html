@@ -107,6 +107,8 @@ select.btn { padding-right: 6px; }
 .ask pre { margin: 0; background: var(--sunken); border-radius: 6px; padding: 8px 10px; font-family: var(--font-data); font-size: 12px; white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto; }
 .ask .acts { display: flex; gap: 8px; flex-wrap: wrap; }
 .running { display: flex; flex-wrap: wrap; gap: 8px; }
+.voice { margin: 0; font-family: var(--font-display); font-size: 19px; line-height: 1.3; text-wrap: balance; color: var(--ink); }
+.voice .who { color: var(--accent); }
 
 /* kpis */
 .kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
@@ -323,7 +325,7 @@ function exampleSnapshot(days) {
   const now = new Date().toISOString().slice(0, 19);
   const t = (id, title, status, extra = {}) => ({ id, title, status, type: "code", repo: "work-api", mode: "smart", effort: "", phase: "work", attempts: "1", cost_usd: 0, jira: "", pr_url: "", doc_url: "", report: "", reason: "", created: now, updated: now, pending: [], ...extra });
   return {
-    generated: now, days, root: "", kill_switch: false, example: true,
+    generated: now, days, root: "", kill_switch: false, example: true, persona: { name: "Sady", line: "1 waiting for your yes." },
     counts: { done: 3, "needs-approval": 1, running: 1, blocked: 1 }, running: ["0006"], pending_approvals: 1,
     tasks: [
       t("0006", "PROJ-1240: add retries to the export job", "running", { phase: "fix", attempts: "2", cost_usd: 1.84 }),
@@ -395,7 +397,7 @@ async function syncDockAndTray() {
     ...items.slice(0, 8),
   ];
   if (data?.kill_switch) menu.push({ type: "separator" }, { label: "Kill switch is ON", enabled: false });
-  desktop.tray.set({ icon: drawIcon(36, true), title: n ? String(n) : "", toolTip: n ? `${n} actions wait for your approval` : "No approvals waiting", menu })
+  desktop.tray.set({ icon: drawIcon(36, true), title: n ? String(n) : "", toolTip: (data?.persona?.line || (n ? `${n} actions wait for your approval` : "No approvals waiting")).slice(0, 100), menu })
     .catch((e) => { trayOn = false; toast("Menu bar: " + e.message); });
 }
 
@@ -459,6 +461,7 @@ function renderAttention(d) {
   if (d.kill_switch) parts.push(`<div class="notice kill"><p><strong>Kill switch is ON.</strong> The guard denies every action and no new task starts.</p><button class="btn" type="button" data-copy="sadyanx unkill">Copy: sadyanx unkill</button></div>`);
   const asks = []; for (const t of d.tasks) for (const p of t.pending) asks.push([t, p]);
   const running = d.tasks.filter((t) => d.running.includes(t.id));
+  if (d.persona?.line) parts.unshift(`<p class="voice"><span class="who">${esc(d.persona.name)}:</span> ${esc(d.persona.line)}</p>`);
   parts.push(`<div class="attn-head"><h2>Waiting for you</h2><span class="quiet">${asks.length ? `${asks.length} action${asks.length > 1 ? "s" : ""} parked until you decide` : "Nothing is waiting for your approval."}</span></div>`);
   for (const [t, p] of asks) {
     parts.push(`<article class="ask"><div class="ask-top"><span class="pill warn">${esc(p.category || "approval")}</span><span class="mono">${esc(t.id)}</span><span class="title">${esc(t.title)}</span><span class="stamp">${when(p.created)}</span></div>

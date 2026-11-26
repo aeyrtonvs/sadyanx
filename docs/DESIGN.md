@@ -446,6 +446,22 @@ item showing how many approvals wait.
 - **Rejected: a local web server** (another process to keep alive, a port to protect) and
   **the `db` capability** (it would copy my tasks and usage to a server for no gain).
 
+**D28 — A persona, only where sadyanx talks to me.** The harness should feel like someone, not
+like a log. `config/persona.toml` (local; `persona.example.toml` ships and `install` copies it)
+gives it a name, a voice and lines per event.
+- **Where it speaks:** the subtitle of notifications (the title and message keep the facts), the
+  first line of `sadyanx status`, the dashboard, and `/task`, which runs `sadyanx persona` and
+  talks to me in that voice and language.
+- **Where it never speaks:** agents' prompts (they stay terse, and a persona there would cost
+  tokens on every turn and loosen their discipline), and anything other people read: Slack
+  replies keep their `[slack]` format, and PRs, Jira and task files stay plain English.
+- **Templates, not a model.** Lines are picked at random and filled with `string.Template`
+  (`$id`, `$title`, `$reason`, `$pr`, `$n`): no tokens, no latency, and nothing a placeholder can
+  reach beyond the values given. Lines are cut at 160 characters.
+- **It never breaks anything.** A missing, disabled, nameless or unparsable file means no persona;
+  a line adds to the facts and never replaces them.
+- **Next:** the daily digest (Iteration 2) is where a model will write in this voice.
+
 ## Known limits
 
 - `caffeinate` does not stop a laptop from sleeping when its lid is closed on battery. The run

@@ -10,7 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import approvals, config, gitops, modes, net, paths, runner, sandbox, slack, status, tasks, trust, usage
+from . import approvals, config, gitops, modes, net, paths, persona, runner, sandbox, slack, status, tasks, trust, usage
 
 
 def die(msg: str, code: int = 1) -> None:
@@ -261,6 +261,10 @@ def cmd_status(a) -> None:
     print(status.as_json(a.days) if a.json else status.render(a.days))
 
 
+def cmd_persona(a) -> None:
+    print(persona.describe())
+
+
 def cmd_repos(a) -> None:
     cfg = config.load()
     if not cfg.repos:
@@ -357,7 +361,7 @@ def cmd_doctor(a) -> None:
 
 def cmd_install(a) -> None:
     # your config lives next to the code but out of git: start it from the examples
-    for name in ("sadyanx.toml", "repos.toml"):
+    for name in ("sadyanx.toml", "repos.toml", "persona.toml"):
         mine, example = paths.config_dir() / name, paths.config_dir() / name.replace(".toml", ".example.toml")
         if not mine.exists() and example.exists():
             shutil.copy(example, mine)
@@ -496,6 +500,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--days", type=int, default=30)
     s.add_argument("--json", action="store_true")
     s.set_defaults(fn=cmd_status)
+
+    sub.add_parser("persona", help="the voice sadyanx uses with you (config/persona.toml)").set_defaults(fn=cmd_persona)
 
     sub.add_parser("repos", help="registered repos").set_defaults(fn=cmd_repos)
     sub.add_parser("doctor", help="check installation and config").set_defaults(fn=cmd_doctor)

@@ -9,4 +9,5 @@ runs/*
 !runs/.gitkeep
 config/sadyanx.toml
 config/repos.toml
+config/persona.toml
 .DS_Store

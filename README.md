@@ -177,7 +177,7 @@ something), and `/task run <id>`.
 | Stop one task / everything | `/task kill 7` · `/task kill` |
 
 The same is available as a CLI (`sadyanx --help`): `add`, `list`, `show`, `run`, `approve`,
-`reject`, `kill`, `unkill`, `log`, `clean`, `usage`, `status`, `repos`, `doctor`, `install`.
+`reject`, `kill`, `unkill`, `log`, `clean`, `usage`, `status`, `persona`, `repos`, `doctor`, `install`.
 
 ### Desktop dashboard
 
@@ -312,6 +312,10 @@ If the Mac shuts down or the runner dies mid-task, the next `list`/`show`/`run` 
   extra forbidden or gated patterns; `[sandbox]`.
 - `config/repos.toml` (from `repos.example.toml`): the repos agents may work in. A code task only
   runs on a registered repo.
+- `config/persona.toml` (from `persona.example.toml`): the voice sadyanx uses with you, in
+  notifications, `sadyanx status`, the dashboard and `/task`: a name, a language, a few lines on
+  how it talks, and lines per event. Never in agents' prompts, Slack, PRs or Jira. Set
+  `enabled = false` or delete it to turn it off.
 - Each task can override `mode`, `effort`, `budget_usd` and `timeout_min` in its frontmatter.
 
 ## Layout
@@ -322,7 +326,7 @@ sadyanxlib/            guard, runner, approvals, git/PRs, reports, notifications
 prompts/               agent rules and prompt templates
 commands/task.md       the /task slash command (linked into ~/.claude/commands)
 app/dashboard.html     the desktop dashboard (a claude.ai artifact; reads `sadyanx status --json`)
-config/                *.example.toml (tracked); your sadyanx.toml, repos.toml (local)
+config/                *.example.toml (tracked); your sadyanx.toml, repos.toml, persona.toml (local)
 tasks/                 the queue: one .md per task (local)
 runs/<id>/             report.md, result.json, logs and transcripts (local)
 ~/.sadyanx/            worktrees, research workspaces, kill switch, pids
