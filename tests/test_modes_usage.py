@@ -151,6 +151,9 @@ class TestUsage(unittest.TestCase):
         top = s["tasks"][0]
         self.assertEqual((top["id"], top["first_pass"], top["modes"]), ("0002", False, ["smart", "ultra"]))
         self.assertTrue(s["tasks"][1]["first_pass"])
+        day = tasks.now()[:10]
+        self.assertEqual(list(s["by_day"]), [day])
+        self.assertEqual((s["by_day"][day]["calls"], s["total"]["seconds"]), (4, 40))
 
     def test_render_and_json(self):
         text = usage.render(30)

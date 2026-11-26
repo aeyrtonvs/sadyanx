@@ -171,12 +171,27 @@ something), and `/task run <id>`.
 | Choose for one run | `/task run 7 watch` (supervised) · `/task run 7 auto` (autonomous) |
 | Pick how hard the work is | add `!deep` (ultra) or `!fast` (balanced) to `jira`, `new` or `run` |
 | See where the tokens go | `/task usage` · `/task usage review` (an agent proposes savings; you approve) |
+| See everything at a glance | `sadyanx status`, or the desktop dashboard (below) |
 | See the queue | `/task` |
 | Approve / reject what is pending | `/task approve 7` · `/task reject 7 <id> not on a Friday` |
 | Stop one task / everything | `/task kill 7` · `/task kill` |
 
 The same is available as a CLI (`sadyanx --help`): `add`, `list`, `show`, `run`, `approve`,
-`reject`, `kill`, `unkill`, `log`, `clean`, `usage`, `repos`, `doctor`, `install`.
+`reject`, `kill`, `unkill`, `log`, `clean`, `usage`, `status`, `repos`, `doctor`, `install`.
+
+### Desktop dashboard
+
+`app/dashboard.html` is a Mac app built as a claude.ai artifact: the queue, the approvals waiting
+for you, tokens per day and by mode, phase or repo, the first-pass rate, and what the guard
+stopped. It reads everything by running `sadyanx status --json`, and changes nothing: for an
+approval it copies the `sadyanx approve` command.
+
+1. Publish the file as an artifact with the `desktop` capability (ask Claude in the Claude
+   desktop app to publish `app/dashboard.html`), and keep it private: anyone who can edit it can
+   run commands on your Mac.
+2. In the Claude desktop app, open it and choose **Install as app**.
+3. In the app, press **Connect** and allow it to run programs. Settings changes the command if
+   `sadyanx` is not at `~/.local/bin/sadyanx`, and can show the approvals count in the menu bar.
 
 ## Supervised or autonomous
 
@@ -306,6 +321,7 @@ bin/sadyanx            CLI (and the PreToolUse hook: `sadyanx hook guard`)
 sadyanxlib/            guard, runner, approvals, git/PRs, reports, notifications
 prompts/               agent rules and prompt templates
 commands/task.md       the /task slash command (linked into ~/.claude/commands)
+app/dashboard.html     the desktop dashboard (a claude.ai artifact; reads `sadyanx status --json`)
 config/                *.example.toml (tracked); your sadyanx.toml, repos.toml (local)
 tasks/                 the queue: one .md per task (local)
 runs/<id>/             report.md, result.json, logs and transcripts (local)

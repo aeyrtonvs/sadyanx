@@ -10,7 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import approvals, config, gitops, modes, net, paths, runner, sandbox, slack, tasks, trust, usage
+from . import approvals, config, gitops, modes, net, paths, runner, sandbox, slack, status, tasks, trust, usage
 
 
 def die(msg: str, code: int = 1) -> None:
@@ -257,6 +257,10 @@ def cmd_usage(a) -> None:
         print(usage.render(a.days))
 
 
+def cmd_status(a) -> None:
+    print(status.as_json(a.days) if a.json else status.render(a.days))
+
+
 def cmd_repos(a) -> None:
     cfg = config.load()
     if not cfg.repos:
@@ -487,6 +491,11 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--json", action="store_true")
     s.add_argument("--review", action="store_true", help="an agent (balanced mode) proposes savings")
     s.set_defaults(fn=cmd_usage)
+
+    s = sub.add_parser("status", help="queue, approvals, kill switch, guard and usage in one snapshot (the dashboard reads --json)")
+    s.add_argument("--days", type=int, default=30)
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(fn=cmd_status)
 
     sub.add_parser("repos", help="registered repos").set_defaults(fn=cmd_repos)
     sub.add_parser("doctor", help="check installation and config").set_defaults(fn=cmd_doctor)

@@ -422,6 +422,30 @@ arrive as a Slack message, and the answer goes back there. Decided with me 2026-
   tool is `mcp__claude_ai_Slack__slack_send_message`, and the audit shows `ToolSearch`, the pinned
   send and the result, nothing else. Not yet: a real task drafting its own reply.
 
+**D27 — A desktop dashboard that reads the harness through the CLI.** The terminal answers one
+question at a time; I want to see the queue, what waits for me and where the tokens go at a
+glance. `app/dashboard.html` is a claude.ai artifact with the `desktop` capability: installed from
+the Claude desktop app it is a Mac app with its own window, Dock badge and an optional menu bar
+item showing how many approvals wait.
+- **One source of truth.** The app runs `sadyanx status --json --days N` through a login shell
+  (`/bin/zsh -lc`, so the Python on my PATH is found) and never parses `tasks/` or `runs/`
+  itself. `status` bundles the queue, pending approvals, the kill switch, the guard's verdicts
+  (from `audit.jsonl`: totals, categories of what it stopped, the latest denials) and
+  `usage.summarize`, which now also has `by_day` and agent seconds. Like `list`, it first marks a
+  task whose runner is gone as `killed`.
+- **Read-only, on purpose.** v1 approves, rejects, runs and kills nothing: it copies the
+  `sadyanx approve|reject <task> <id>` command for me to run. Approving from a window is the next
+  step, and it will go through the same CLI so the guard and the approval files stay the only path.
+- **Permissions.** It asks for `full-access` (run programs) only from a click on "Connect", and
+  `menu-bar` only from Settings. Full access is allowed only on my own, unshared artifact; anyone
+  who could edit the artifact could run commands on this Mac, so it stays private and nobody
+  else gets edit access.
+- **Nothing of mine in the page.** The HTML is tracked in this public repo and carries no data:
+  everything comes from `status` at run time. Outside its desktop app (a browser, the artifact
+  panel) it shows marked example data and an install button.
+- **Rejected: a local web server** (another process to keep alive, a port to protect) and
+  **the `db` capability** (it would copy my tasks and usage to a server for no gain).
+
 ## Known limits
 
 - `caffeinate` does not stop a laptop from sleeping when its lid is closed on battery. The run

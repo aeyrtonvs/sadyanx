@@ -1,0 +1,633 @@
+<title>sadyanx</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<script type="application/json" id="claude-artifacts-manifest">{"permissions": ["full-access", "menu-bar"]}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a control-room column. What needs you sits on top, then the numbers, then the evidence (queue, guard). */
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --sunken: #eef1f4;
+  --ink: #141a22;
+  --ink-2: #4d5664;
+  --ink-3: #737c8a;
+  --line: #dfe3e9;
+  --accent: #2a78d6;
+  --accent-soft: #e3eefb;
+  --good: #0a7d0a;
+  --good-mark: #0ca30c;
+  --warn: #8a5a00;
+  --warn-mark: #fab219;
+  --serious: #a8461f;
+  --serious-mark: #ec835a;
+  --critical: #b52f2f;
+  --critical-mark: #d03b3b;
+  --critical-soft: #fbe9e9;
+  --warn-soft: #fdf3dc;
+  --tip-bg: #141a22;
+  --tip-ink: #f4f6f8;
+  --font-display: "Bricolage Grotesque", "IBM Plex Sans", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111419; --surface: #191d23; --sunken: #20252d; --ink: #eceff3; --ink-2: #b3bac6; --ink-3: #8a93a1;
+    --line: #2b313a; --accent: #3987e5; --accent-soft: #1b2b40; --good: #4cc24c; --good-mark: #0ca30c;
+    --warn: #f3c25a; --warn-mark: #fab219; --serious: #f0a07f; --serious-mark: #ec835a; --critical: #ef7c7c;
+    --critical-mark: #d03b3b; --critical-soft: #3a1d1f; --warn-soft: #362b14; --tip-bg: #eceff3; --tip-ink: #111419;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111419; --surface: #191d23; --sunken: #20252d; --ink: #eceff3; --ink-2: #b3bac6; --ink-3: #8a93a1;
+  --line: #2b313a; --accent: #3987e5; --accent-soft: #1b2b40; --good: #4cc24c; --good-mark: #0ca30c;
+  --warn: #f3c25a; --warn-mark: #fab219; --serious: #f0a07f; --serious-mark: #ec835a; --critical: #ef7c7c;
+  --critical-mark: #d03b3b; --critical-soft: #3a1d1f; --warn-soft: #362b14; --tip-bg: #eceff3; --tip-ink: #111419;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.45; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 48px; display: grid; gap: 20px; }
+h1, h2 { font-family: var(--font-display); font-weight: 600; margin: 0; text-wrap: balance; }
+h2 { font-size: 15px; letter-spacing: 0.01em; }
+.num, code, .mono { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+button, select, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+a { color: var(--accent); }
+
+/* top bar */
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); app-region: drag; -webkit-app-region: drag; }
+.bar-in { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; min-height: 52px; }
+body.in-app .bar-in { padding-left: max(84px, env(safe-area-inset-left, 0px)); }
+.bar button, .bar select, .bar .pill { app-region: no-drag; -webkit-app-region: no-drag; }
+.brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+.brand h1 { font-size: 20px; }
+.brand .sub { color: var(--ink-3); font-size: 12px; }
+.ctrl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 5px 11px; font-size: 13px; }
+.btn:hover { border-color: var(--ink-3); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn[disabled] { opacity: .55; cursor: default; }
+select.btn { padding-right: 6px; }
+.stamp { color: var(--ink-3); font-size: 12px; }
+
+/* pills */
+.pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 2px 9px 2px 7px; font-size: 12px; font-weight: 500; white-space: nowrap; background: var(--sunken); color: var(--ink-2); }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); }
+.pill.good { color: var(--good); } .pill.good::before { background: var(--good-mark); }
+.pill.warn { color: var(--warn); background: var(--warn-soft); } .pill.warn::before { background: var(--warn-mark); }
+.pill.serious { color: var(--serious); } .pill.serious::before { background: var(--serious-mark); }
+.pill.critical { color: var(--critical); background: var(--critical-soft); } .pill.critical::before { background: var(--critical-mark); }
+.pill.live { color: var(--accent); background: var(--accent-soft); } .pill.live::before { background: var(--accent); }
+
+/* notices */
+.notice { border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.notice p { margin: 0; flex: 1 1 280px; min-width: 0; color: var(--ink-2); }
+.notice strong { color: var(--ink); }
+.notice.example { border-style: dashed; }
+.notice.error { border-color: var(--critical-mark); background: var(--critical-soft); }
+.notice.error pre { flex-basis: 100%; margin: 0; white-space: pre-wrap; word-break: break-word; font-size: 12px; color: var(--ink-2); }
+.notice.kill { border-color: var(--critical-mark); background: var(--critical-soft); }
+
+/* attention */
+.attn { display: grid; gap: 10px; }
+.attn-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.attn-head .quiet { color: var(--ink-3); font-size: 13px; }
+.ask { border: 1px solid var(--line); border-left: 3px solid var(--warn-mark); background: var(--surface); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 8px; min-width: 0; }
+.ask-top { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.ask-top .title { font-weight: 600; min-width: 0; }
+.ask pre { margin: 0; background: var(--sunken); border-radius: 6px; padding: 8px 10px; font-family: var(--font-data); font-size: 12px; white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto; }
+.ask .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.running { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* kpis */
+.kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.kpi { background: var(--surface); padding: 14px 14px 12px; display: grid; gap: 2px; align-content: start; min-width: 0; }
+.kpi .label { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); }
+.kpi .value { font-family: var(--font-data); font-size: 24px; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.kpi .note { font-size: 12px; color: var(--ink-2); }
+@media (max-width: 980px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* panels */
+.grid2 { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 20px; }
+@media (max-width: 900px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.panel-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.panel-head h2 { margin-right: auto; }
+.panel-head .hint { color: var(--ink-3); font-size: 12px; flex-basis: 100%; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: transparent; padding: 4px 10px; font-size: 12px; color: var(--ink-2); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+/* chart */
+.chart { position: relative; min-height: 230px; }
+.chart svg { display: block; width: 100%; height: 230px; overflow: visible; }
+.chart .grid line { stroke: var(--line); stroke-width: 1; }
+.chart .axis text { fill: var(--ink-3); font-family: var(--font-data); font-size: 10.5px; }
+.chart .bar-mark { fill: var(--accent); }
+.chart .bar-mark.dim { opacity: .35; }
+.chart .hit { fill: transparent; }
+.tip { position: absolute; pointer-events: none; background: var(--tip-bg); color: var(--tip-ink); border-radius: 8px; padding: 8px 10px; font-size: 12px; line-height: 1.5; min-width: 150px; z-index: 3; box-shadow: 0 6px 20px rgba(0,0,0,.18); }
+.tip b { font-family: var(--font-data); font-weight: 500; }
+.tip .row { display: flex; justify-content: space-between; gap: 14px; }
+.tip .row span:last-child { font-family: var(--font-data); }
+.empty { color: var(--ink-3); font-size: 13px; padding: 24px 0; text-align: center; }
+
+/* breakdown rows */
+.rows { display: grid; gap: 10px; }
+.brow { display: grid; grid-template-columns: minmax(70px, 120px) minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; }
+.brow .k { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brow .track { height: 10px; background: var(--sunken); border-radius: 0 4px 4px 0; overflow: hidden; }
+.brow .fill { height: 100%; background: var(--accent); border-radius: 0 4px 4px 0; }
+.brow .v { font-family: var(--font-data); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.brow .meta { grid-column: 2 / 4; font-size: 12px; color: var(--ink-3); margin-top: -4px; }
+
+/* table */
+.table-wrap { overflow-x: auto; margin: 0 -16px; padding: 0 16px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); font-weight: 500; padding: 6px 10px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 9px 10px 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+td.t { min-width: 220px; }
+td.t .ttl { font-weight: 500; }
+td.t .why { color: var(--ink-3); font-size: 12px; margin-top: 2px; }
+td.r, th.r { text-align: right; }
+td .links { display: flex; gap: 8px; flex-wrap: wrap; }
+.linkbtn { border: 0; background: none; padding: 0; color: var(--accent); text-decoration: underline; font-size: 13px; }
+
+/* guard */
+.stack { display: flex; gap: 2px; height: 14px; border-radius: 4px; overflow: hidden; }
+.stack div { min-width: 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.denials { display: grid; gap: 0; }
+.den { padding: 9px 0; border-bottom: 1px solid var(--line); display: grid; gap: 3px; min-width: 0; }
+.den:last-child { border-bottom: 0; }
+.den .top { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--ink-3); align-items: center; }
+.den .reason { font-size: 13px; word-break: break-word; }
+.chip { font-size: 11px; border: 1px solid var(--line); border-radius: 5px; padding: 0 6px; color: var(--ink-2); font-family: var(--font-data); }
+
+/* settings */
+.settings { display: grid; gap: 12px; }
+.field { display: grid; gap: 6px; }
+.field label { font-weight: 500; }
+.field .help { color: var(--ink-3); font-size: 12px; }
+.field .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.field input { flex: 1 1 260px; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; background: var(--bg); font-family: var(--font-data); font-size: 13px; }
+.toast { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); background: var(--tip-bg); color: var(--tip-ink); padding: 8px 14px; border-radius: 8px; font-size: 13px; z-index: 20; }
+@media (prefers-reduced-motion: no-preference) { .btn, .seg button { transition: border-color .15s, background-color .15s; } }
+</style>
+
+<header class="bar">
+  <div class="bar-in">
+    <div class="brand"><h1>sadyanx</h1><span class="sub" id="source-label">example data</span></div>
+    <div class="ctrl">
+      <span class="pill" id="kill-pill">kill switch off</span>
+      <select class="btn" id="days" aria-label="Period">
+        <option value="7">Last 7 days</option>
+        <option value="30" selected>Last 30 days</option>
+        <option value="90">Last 90 days</option>
+      </select>
+      <button class="btn" id="refresh" type="button">Refresh</button>
+      <button class="btn" id="settings-btn" type="button" aria-expanded="false">Settings</button>
+      <span class="stamp" id="stamp"></span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="gate"></div>
+
+  <section class="panel settings" id="settings" hidden>
+    <div class="panel-head"><h2>Settings</h2></div>
+    <div class="field">
+      <label for="bin">sadyanx command</label>
+      <div class="row">
+        <input id="bin" type="text" spellcheck="false" autocomplete="off">
+        <button class="btn" id="bin-save" type="button">Save</button>
+      </div>
+      <span class="help">Run through your login shell as <code>&lt;command&gt; status --json --days N</code>. The default is where <code>sadyanx install</code> links it.</span>
+    </div>
+    <div class="field">
+      <label>Menu bar</label>
+      <div class="row">
+        <button class="btn" id="tray-btn" type="button">Show approvals in the menu bar</button>
+        <button class="btn" id="perm-btn" type="button">Permissions</button>
+      </div>
+      <span class="help">The menu bar item shows how many actions wait for your approval, and lives while this app is open.</span>
+    </div>
+  </section>
+
+  <section class="attn" id="attention" aria-live="polite"></section>
+
+  <section class="kpis" id="kpis" aria-label="Summary"></section>
+
+  <div class="grid2">
+    <section class="panel">
+      <div class="panel-head">
+        <h2 id="chart-title">Tokens per day</h2>
+        <div class="seg" role="group" aria-label="Measure">
+          <button type="button" data-metric="tokens" aria-pressed="true">Tokens</button>
+          <button type="button" data-metric="cost_usd" aria-pressed="false">Est. $</button>
+          <button type="button" data-metric="seconds" aria-pressed="false">Agent time</button>
+        </div>
+        <span class="hint">Every agent call: work, fix rounds, reviews and PR follow-ups.</span>
+      </div>
+      <div class="chart" id="chart"></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Where the tokens go</h2>
+        <div class="seg" role="group" aria-label="Group by">
+          <button type="button" data-by="mode" aria-pressed="true">Mode</button>
+          <button type="button" data-by="phase" aria-pressed="false">Phase</button>
+          <button type="button" data-by="repo" aria-pressed="false">Repo</button>
+        </div>
+      </div>
+      <div class="rows" id="breakdown"></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Queue</h2>
+      <div class="seg" role="group" aria-label="Filter">
+        <button type="button" data-filter="all" aria-pressed="true">All</button>
+        <button type="button" data-filter="active" aria-pressed="false">Not done</button>
+      </div>
+    </div>
+    <div class="table-wrap"><table id="queue"></table></div>
+  </section>
+
+  <div class="grid2">
+    <section class="panel">
+      <div class="panel-head"><h2>Guard</h2><span class="hint" id="guard-hint"></span></div>
+      <div id="guard-stack"></div>
+      <div id="guard-cats" class="rows"></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>Latest denials</h2></div>
+      <div class="denials" id="denials"></div>
+    </section>
+  </div>
+</main>
+
+<script type="module">
+const $ = (s) => document.querySelector(s);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("sadyanx." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("sadyanx." + k, JSON.stringify(v)); } catch {} },
+};
+const DEFAULT_BIN = "~/.local/bin/sadyanx";
+const REFRESH_MS = 60_000;
+
+const ui = { metric: "tokens", by: "mode", filter: store.get("filter", "all"), days: store.get("days", 30) };
+let data = null, source = "example", error = "", desktop = null, trayOn = false, busy = false;
+
+// ---------- formatting ----------
+const fmtN = (n) => { n = Number(n) || 0; const a = Math.abs(n);
+  return a >= 1e9 ? (n / 1e9).toFixed(2) + "B" : a >= 1e6 ? (n / 1e6).toFixed(a >= 1e8 ? 0 : 1) + "M" : a >= 1e3 ? (n / 1e3).toFixed(a >= 1e5 ? 0 : 1) + "k" : String(Math.round(n)); };
+const fmtUsd = (n) => "$" + (Number(n) || 0).toFixed((Number(n) || 0) >= 100 ? 0 : 2);
+const fmtDur = (s) => { s = Math.round(Number(s) || 0); if (s < 60) return s + "s"; const m = Math.round(s / 60); if (m < 60) return m + "m"; const h = Math.floor(m / 60); return h + "h " + String(m % 60).padStart(2, "0") + "m"; };
+const fmtMetric = (k, v) => k === "cost_usd" ? fmtUsd(v) : k === "seconds" ? fmtDur(v) : fmtN(v);
+const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const when = (ts) => { if (!ts) return ""; const d = new Date(ts); if (isNaN(d)) return esc(ts);
+  const days = Math.floor((Date.now() - d) / 864e5);
+  const hm = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return days < 1 && d.getDate() === new Date().getDate() ? "today " + hm : days < 7 ? d.toLocaleDateString([], { weekday: "short" }) + " " + hm : d.toLocaleDateString([], { month: "short", day: "numeric" }); };
+const safeUrl = (u) => typeof u === "string" && u.startsWith("https://") ? u : "";
+
+// ---------- example data (shown until the app is connected) ----------
+function exampleSnapshot(days) {
+  const by_day = {}; const today = new Date();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    const wd = d.getDay(); if (wd === 0 || wd === 6) continue;
+    const w = 0.5 + ((i * 37) % 11) / 10;
+    by_day[ymd(d)] = { calls: Math.round(3 + w * 4), tokens: Math.round(w * 4.2e6), output: Math.round(w * 48e3), cost_usd: +(w * 0.9).toFixed(2), turns: Math.round(w * 30), seconds: Math.round(w * 2400) };
+  }
+  const tot = Object.values(by_day).reduce((a, b) => { for (const k in b) a[k] = (a[k] || 0) + b[k]; return a; }, {});
+  const b = (share) => ({ calls: Math.round(tot.calls * share), tokens: Math.round(tot.tokens * share), output: 0, cost_usd: +(tot.cost_usd * share).toFixed(2), turns: 0, seconds: Math.round(tot.seconds * share) });
+  const now = new Date().toISOString().slice(0, 19);
+  const t = (id, title, status, extra = {}) => ({ id, title, status, type: "code", repo: "work-api", mode: "smart", effort: "", phase: "work", attempts: "1", cost_usd: 0, jira: "", pr_url: "", doc_url: "", report: "", reason: "", created: now, updated: now, pending: [], ...extra });
+  return {
+    generated: now, days, root: "", kill_switch: false, example: true,
+    counts: { done: 3, "needs-approval": 1, running: 1, blocked: 1 }, running: ["0006"], pending_approvals: 1,
+    tasks: [
+      t("0006", "PROJ-1240: add retries to the export job", "running", { phase: "fix", attempts: "2", cost_usd: 1.84 }),
+      t("0005", "PROJ-1238: deploy the new worker size", "needs-approval", { repo: "infra-iac", cost_usd: 0.92, pending: [{ id: "3f9a1c2e", kind: "tool", category: "deploy", created: now, text: "[3f9a1c2e] deploy: terraform apply -target=module.worker" }] }),
+      t("0004", "PROJ-1234: memory alarms for the worker", "done", { repo: "infra-iac", cost_usd: 2.41, pr_url: "https://example.com/pr/12" }),
+      t("0003", "Research: slow queries after the release", "done", { type: "research", repo: "", mode: "balanced", cost_usd: 0.38 }),
+      t("0002", "PROJ-1229: fix the flaky checkout test", "blocked", { cost_usd: 1.12, reason: "needs a test database URL" }),
+      t("0001", "PROJ-1221: rename the billing env vars", "done", { cost_usd: 0.77, pr_url: "https://example.com/pr/9" }),
+    ],
+    guard: { verdicts: { allow: 412, deny: 9, ask: 3 }, by_category: { deny: { write: 6, secrets: 2, forbidden: 1 }, ask: { deploy: 2, comment: 1 } },
+      recent_denials: [
+        { ts: now, task: "0006", tool: "Bash", category: "write", reason: "no writing outside the worktree: ~/Library/Caches/example" },
+        { ts: now, task: "0002", tool: "Read", category: "secrets", reason: "secret files may not be read or copied: .env" },
+      ] },
+    usage: { days, total: { ...tot, output: tot.output }, cache_hit_ratio: 0.93,
+      by_mode: { smart: b(0.72), balanced: b(0.2), cheap: b(0.08) },
+      by_phase: { work: b(0.55), fix: b(0.25), review: b(0.12), "pr-ci": b(0.08) },
+      by_repo: { "work-api": b(0.6), "infra-iac": b(0.3), "(research)": b(0.1) },
+      by_day, tasks: [{ id: "0004", status: "done", first_pass: true }, { id: "0003", status: "done", first_pass: true }, { id: "0001", status: "done", first_pass: false }] },
+  };
+}
+
+// ---------- desktop ----------
+const shq = (s) => "'" + String(s).replace(/'/g, "'\\''") + "'";
+function command() {
+  const bin = (store.get("bin", DEFAULT_BIN) || DEFAULT_BIN).trim();
+  const days = [7, 30, 90].includes(Number(ui.days)) ? Number(ui.days) : 30;
+  return `/bin/zsh -lc ${shq(`${bin} status --json --days ${days}`)}`;
+}
+
+async function load() {
+  if (!desktop?.childProcess || busy) return;
+  busy = true; $("#refresh").disabled = true; $("#refresh").textContent = "Refreshing…";
+  try {
+    const r = await desktop.childProcess.exec(command(), { timeout: 90_000 });
+    if (r.code !== 0) throw new Error((r.stderr || r.stdout || "").trim().slice(-600) || `exit code ${r.code}`);
+    if (r.truncated) throw new Error("the status output was cut short");
+    data = JSON.parse(r.stdout); source = "live"; error = "";
+  } catch (e) {
+    error = String(e?.message || e);
+  } finally {
+    busy = false; $("#refresh").disabled = false; $("#refresh").textContent = "Refresh";
+  }
+  render(); syncDockAndTray();
+}
+
+function drawIcon(size, tray) {
+  const c = document.createElement("canvas"); c.width = c.height = size; const g = c.getContext("2d"); const u = size / 32;
+  const rr = (x, y, w, h, r) => { g.beginPath(); g.roundRect(x * u, y * u, w * u, h * u, r * u); g.fill(); };
+  if (!tray) { g.fillStyle = "#18202b"; rr(1, 1, 30, 30, 7); }
+  const bars = [[7, 8, 18], [7, 14.5, 13], [7, 21, 9]];
+  bars.forEach(([x, y, w], i) => { g.fillStyle = tray ? "#000" : i === 0 ? "#3987e5" : "#c9d2de"; rr(x, y, w, 3.5, 1.75); });
+  if (!tray) { g.fillStyle = "#fab219"; g.beginPath(); g.arc(23 * u, 22.75 * u, 2.6 * u, 0, Math.PI * 2); g.fill(); }
+  return c.toDataURL("image/png");
+}
+
+async function syncDockAndTray() {
+  if (!desktop?.app) return;
+  const n = source === "live" ? (data?.pending_approvals || 0) : 0;
+  desktop.app.dock.setBadge(n ? String(n) : "").catch(() => {});
+  if (!trayOn) return;
+  const items = [];
+  for (const t of (data?.tasks || [])) for (const p of t.pending) items.push({ label: `${t.id} · ${p.category}: ${t.title}`.slice(0, 80), enabled: false });
+  const menu = [
+    { label: "Open sadyanx", click: () => desktop.window.show().catch(() => {}) },
+    { label: "Refresh", click: () => load() },
+    { type: "separator" },
+    { label: n ? `${n} waiting for your approval` : "Nothing waits for you", enabled: false },
+    ...items.slice(0, 8),
+  ];
+  if (data?.kill_switch) menu.push({ type: "separator" }, { label: "Kill switch is ON", enabled: false });
+  desktop.tray.set({ icon: drawIcon(36, true), title: n ? String(n) : "", toolTip: n ? `${n} actions wait for your approval` : "No approvals waiting", menu })
+    .catch((e) => { trayOn = false; toast("Menu bar: " + e.message); });
+}
+
+async function enableTray() {
+  try {
+    const st = await desktop.permissions.request(["menu-bar"]);
+    if (st["menu-bar"] !== "granted") { toast("The menu bar item was not allowed."); return; }
+    trayOn = true; store.set("tray", true); await syncDockAndTray(); renderSettings(); toast("Shown in the menu bar");
+  } catch (e) { toast("Menu bar: " + e.message); }
+}
+
+async function openReport(rel) {
+  if (!desktop?.shell || !data?.root || !rel) return;
+  try { await desktop.shell.openPath(`${data.root}/${rel}`); } catch (e) { toast("Could not open the report: " + e.message); }
+}
+
+// ---------- rendering ----------
+function setPressed(sel, attr, val) { document.querySelectorAll(sel).forEach((b) => b.setAttribute("aria-pressed", String(b.dataset[attr] === val))); }
+
+function render() {
+  const d = data || exampleSnapshot(ui.days);
+  $("#source-label").textContent = source === "live" ? `your harness · ${d.root || ""}` : "example data";
+  $("#stamp").textContent = source === "live" && d.generated ? "updated " + new Date(d.generated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+  const kp = $("#kill-pill"); kp.className = "pill " + (d.kill_switch ? "critical" : "good"); kp.textContent = d.kill_switch ? "kill switch ON" : "kill switch off";
+  renderGate(); renderAttention(d); renderKpis(d); renderChart(d); renderBreakdown(d); renderQueue(d); renderGuard(d);
+}
+
+function renderGate() {
+  const g = $("#gate");
+  if (error) {
+    g.innerHTML = `<div class="notice error"><p><strong>sadyanx did not answer.</strong> Check the command in Settings, or run it in a terminal to see the problem. The numbers below are from the last good refresh${source === "live" ? "" : " (example data)"}.</p><button class="btn" type="button" data-act="settings">Open settings</button><pre></pre></div>`;
+    g.querySelector("pre").textContent = error; return;
+  }
+  if (source === "live") { g.innerHTML = ""; return; }
+  g.innerHTML = `<div class="notice example"><p id="gate-text"><strong>Example data.</strong> This page shows your own queue, approvals and usage when it runs as its desktop app.</p></div>`;
+  gateAction();
+}
+
+let gateMode = "none";
+async function gateAction() {
+  const box = $("#gate .notice"); if (!box || source === "live") return;
+  const add = (label, fn, primary = true) => { const b = document.createElement("button"); b.type = "button"; b.className = "btn" + (primary ? " primary" : ""); b.textContent = label; b.onclick = fn; box.appendChild(b); };
+  const text = $("#gate-text");
+  if (gateMode === "connect") {
+    text.innerHTML = "<strong>Connect to sadyanx.</strong> The app reads your harness by running <code>sadyanx status --json</code>, which needs permission to run programs on this Mac. It only reads: it never approves, runs or stops anything.";
+    add("Connect", async () => { try { const st = await desktop.permissions.request(["full-access"]); if (st["full-access"] === "granted") { gateMode = "none"; load(); startTimer(); } else { gateMode = st["full-access"] === "denied" ? "denied" : "unavailable"; render(); } } catch (e) { toast(e.message); } });
+  } else if (gateMode === "denied") {
+    text.innerHTML = "<strong>Running programs is turned off for this app,</strong> so it can only show example data. Turn it on in Permissions.";
+    add("Permissions", () => desktop.permissions.manage().catch((e) => toast(e.message)));
+  } else if (gateMode === "unavailable") {
+    text.innerHTML = "<strong>This app may not run programs here.</strong> Running programs is allowed only for your own artifact, opened in the Claude desktop app under the same organization it was published in.";
+  } else if (gateMode === "install") {
+    add("Install as app", () => desktop.install.request().catch((e) => toast(e.message)));
+  } else if (gateMode === "elsewhere") {
+    text.innerHTML += " Install it from the Claude desktop app.";
+  }
+}
+
+function renderAttention(d) {
+  const a = $("#attention"); const parts = [];
+  if (d.kill_switch) parts.push(`<div class="notice kill"><p><strong>Kill switch is ON.</strong> The guard denies every action and no new task starts.</p><button class="btn" type="button" data-copy="sadyanx unkill">Copy: sadyanx unkill</button></div>`);
+  const asks = []; for (const t of d.tasks) for (const p of t.pending) asks.push([t, p]);
+  const running = d.tasks.filter((t) => d.running.includes(t.id));
+  parts.push(`<div class="attn-head"><h2>Waiting for you</h2><span class="quiet">${asks.length ? `${asks.length} action${asks.length > 1 ? "s" : ""} parked until you decide` : "Nothing is waiting for your approval."}</span></div>`);
+  for (const [t, p] of asks) {
+    parts.push(`<article class="ask"><div class="ask-top"><span class="pill warn">${esc(p.category || "approval")}</span><span class="mono">${esc(t.id)}</span><span class="title">${esc(t.title)}</span><span class="stamp">${when(p.created)}</span></div>
+      <pre>${esc(p.text)}</pre>
+      <div class="acts"><button class="btn" type="button" data-copy="${esc(`sadyanx approve ${t.id} ${p.id}`)}">Copy approve command</button><button class="btn" type="button" data-copy="${esc(`sadyanx reject ${t.id} ${p.id}`)}">Copy reject command</button></div></article>`);
+  }
+  if (running.length) parts.push(`<div class="running">${running.map((t) => `<span class="pill live">running · ${esc(t.id)} ${esc(t.phase || "")}</span>`).join("")}</div>`);
+  a.innerHTML = parts.join("");
+}
+
+function renderKpis(d) {
+  const u = d.usage.total || {}; const v = d.guard.verdicts || {};
+  const done = (d.usage.tasks || []).filter((t) => t.status === "done");
+  const fp = done.filter((t) => t.first_pass).length;
+  const tiles = [
+    ["Agent calls", fmtN(u.calls), `${fmtN(u.turns)} turns`],
+    ["Tokens", fmtN(u.tokens), `${fmtN(u.output)} output · cache hit ${Math.round((d.usage.cache_hit_ratio || 0) * 100)}%`],
+    ["Est. cost", fmtUsd(u.cost_usd), "list price; a Max plan spends quota"],
+    ["Agent time", fmtDur(u.seconds), `across ${Object.keys(d.usage.by_day || {}).length} active days`],
+    ["First pass", done.length ? Math.round(fp / done.length * 100) + "%" : "–", done.length ? `${fp} of ${done.length} done tasks with no fix round` : "no finished tasks yet"],
+    ["Guard denied", fmtN(v.deny || 0), `${fmtN(v.allow || 0)} allowed · ${fmtN(v.ask || 0)} parked`],
+  ];
+  $("#kpis").innerHTML = tiles.map(([l, val, n]) => `<div class="kpi"><span class="label">${esc(l)}</span><span class="value">${esc(val)}</span><span class="note">${esc(n)}</span></div>`).join("");
+}
+
+function niceStep(max, n = 4) { if (max <= 0) return 1; const raw = max / n; const p = 10 ** Math.floor(Math.log10(raw)); const m = raw / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * p; }
+function barPath(x, y, w, h, r) { r = Math.min(r, w / 2, h); return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`; }
+
+function renderChart(d) {
+  const box = $("#chart"); const k = ui.metric;
+  $("#chart-title").textContent = { tokens: "Tokens per day", cost_usd: "Estimated cost per day", seconds: "Agent time per day" }[k];
+  const days = []; const today = new Date();
+  for (let i = d.days - 1; i >= 0; i--) { const x = new Date(today); x.setDate(x.getDate() - i); days.push(ymd(x)); }
+  const rows = days.map((day) => ({ day, ...(d.usage.by_day?.[day] || {}) }));
+  const max = Math.max(0, ...rows.map((r) => Number(r[k]) || 0));
+  if (!max) { box.innerHTML = `<div class="empty">No agent runs in the last ${d.days} days.</div>`; return; }
+  const W = Math.max(280, box.clientWidth || 600), H = 230, L = 54, R = 6, T = 10, B = 24;
+  const iw = W - L - R, ih = H - T - B; const step = niceStep(max); const top = Math.ceil(max / step) * step;
+  const y = (v) => T + ih - (v / top) * ih; const band = iw / rows.length; const bw = Math.max(1.5, band - 2);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc($("#chart-title").textContent)}"><g class="grid">`;
+  for (let v = 0; v <= top + step / 1000; v += step) s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"></line>`;
+  s += `</g><g class="axis">`;
+  for (let v = 0; v <= top + step / 1000; v += step) s += `<text x="${L - 8}" y="${y(v) + 3.5}" text-anchor="end">${esc(fmtMetric(k, v))}</text>`;
+  const every = Math.ceil(rows.length / Math.max(2, Math.floor(iw / 64)));
+  rows.forEach((r, i) => { if ((rows.length - 1 - i) % every === 0) s += `<text x="${L + i * band + band / 2}" y="${H - 6}" text-anchor="middle">${r.day.slice(5)}</text>`; });
+  s += `</g><g>`;
+  rows.forEach((r, i) => { const v = Number(r[k]) || 0; if (v > 0) { const h = Math.max(1, ih - (y(v) - T)); s += `<path class="bar-mark" data-i="${i}" d="${barPath(L + i * band + (band - bw) / 2, T + ih - h, bw, h, Math.min(4, bw / 2))}"></path>`; } });
+  rows.forEach((r, i) => { s += `<rect class="hit" data-i="${i}" x="${L + i * band}" y="${T}" width="${band}" height="${ih}"></rect>`; });
+  s += `</g></svg><div class="tip" hidden></div>`;
+  box.innerHTML = s;
+  const tip = box.querySelector(".tip"); const marks = box.querySelectorAll(".bar-mark");
+  const show = (i, evx) => {
+    const r = rows[i]; marks.forEach((m) => m.classList.toggle("dim", m.dataset.i !== String(i)));
+    const dt = new Date(r.day + "T12:00:00");
+    tip.innerHTML = `<div><b>${esc(dt.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }))}</b></div>` +
+      [["Tokens", fmtN(r.tokens)], ["Output", fmtN(r.output)], ["Calls", fmtN(r.calls)], ["Est. $", fmtUsd(r.cost_usd)], ["Agent time", fmtDur(r.seconds)]]
+        .map(([a, b]) => `<div class="row"><span>${a}</span><span>${esc(b)}</span></div>`).join("");
+    tip.hidden = false; const bw2 = tip.offsetWidth; const x = L + i * band + band / 2;
+    tip.style.left = Math.min(Math.max(0, x - bw2 / 2), box.clientWidth - bw2) + "px"; tip.style.top = "0px";
+  };
+  const hide = () => { tip.hidden = true; marks.forEach((m) => m.classList.remove("dim")); };
+  box.querySelectorAll(".hit").forEach((h) => { h.addEventListener("mouseenter", () => show(Number(h.dataset.i))); });
+  box.querySelector("svg").addEventListener("mouseleave", hide);
+}
+
+function renderBreakdown(d) {
+  const src = d.usage["by_" + ui.by] || {}; const total = d.usage.total?.tokens || 0;
+  const entries = Object.entries(src).sort((a, b) => b[1].tokens - a[1].tokens);
+  if (!entries.length) { $("#breakdown").innerHTML = `<div class="empty">No agent runs in this period.</div>`; return; }
+  const max = entries[0][1].tokens || 1;
+  $("#breakdown").innerHTML = entries.map(([k, b]) => `<div class="brow"><span class="k" title="${esc(k)}">${esc(k)}</span>
+    <div class="track"><div class="fill" style="width:${Math.max(1, b.tokens / max * 100).toFixed(1)}%"></div></div>
+    <span class="v">${fmtN(b.tokens)} · ${total ? Math.round(b.tokens / total * 100) : 0}%</span>
+    <span class="meta">${fmtN(b.calls)} calls · ${fmtUsd(b.cost_usd)} · ${fmtDur(b.seconds)}</span></div>`).join("");
+}
+
+const STATUS = { done: "good", running: "live", verifying: "live", "needs-approval": "warn", blocked: "serious", failed: "critical", killed: "", draft: "", ready: "" };
+
+function renderQueue(d) {
+  const rows = d.tasks.filter((t) => ui.filter === "all" || t.status !== "done");
+  if (!rows.length) { $("#queue").innerHTML = `<tbody><tr><td class="empty">${ui.filter === "all" ? "No tasks yet. Create one with /task." : "Every task is done."}</td></tr></tbody>`; return; }
+  const live = source === "live";
+  $("#queue").innerHTML = `<thead><tr><th>ID</th><th>Status</th><th>Task</th><th>Repo</th><th>Mode</th><th class="r">Tries</th><th class="r">Cost</th><th>Updated</th><th>Open</th></tr></thead><tbody>` +
+    rows.map((t) => {
+      const links = [];
+      if (safeUrl(t.pr_url)) links.push(`<a href="${esc(t.pr_url)}" target="_blank" rel="noopener">PR</a>`);
+      if (safeUrl(t.doc_url)) links.push(`<a href="${esc(t.doc_url)}" target="_blank" rel="noopener">Doc</a>`);
+      if (live && t.report) links.push(`<button class="linkbtn" type="button" data-report="${esc(t.report)}">Report</button>`);
+      const why = t.reason && t.status !== "done" ? `<div class="why">${esc(t.reason)}</div>` : "";
+      return `<tr><td class="mono">${esc(t.id)}</td><td><span class="pill ${STATUS[t.status] ?? ""}">${esc(t.status)}</span></td>
+        <td class="t"><div class="ttl">${esc(t.title)}</div>${why}</td><td>${esc(t.repo || (t.type === "research" ? "research" : "–"))}</td>
+        <td class="mono">${esc(t.mode || "–")}${t.effort ? "/" + esc(t.effort) : ""}</td><td class="r num">${esc(t.attempts || "–")}</td>
+        <td class="r num">${fmtUsd(t.cost_usd)}</td><td>${when(t.updated || t.created)}</td><td><div class="links">${links.join("") || "–"}</div></td></tr>`;
+    }).join("") + `</tbody>`;
+}
+
+const VERDICT = [["allow", "Allowed", "var(--good-mark)"], ["ask", "Parked for approval", "var(--warn-mark)"], ["deny", "Denied", "var(--critical-mark)"]];
+function renderGuard(d) {
+  const v = d.guard.verdicts || {}; const total = VERDICT.reduce((a, [k]) => a + (v[k] || 0), 0);
+  $("#guard-hint").textContent = `Every tool call the agents made in the last ${d.days} days, as the guard decided it.`;
+  if (!total) { $("#guard-stack").innerHTML = `<div class="empty">No tool calls in this period.</div>`; $("#guard-cats").innerHTML = ""; }
+  else {
+    $("#guard-stack").innerHTML = `<div class="stack" role="img" aria-label="${VERDICT.map(([k, l]) => `${l} ${v[k] || 0}`).join(", ")}">${VERDICT.filter(([k]) => v[k]).map(([k, l, c]) => `<div style="flex:${v[k]} 1 0;background:${c}" title="${l}: ${v[k]}"></div>`).join("")}</div>
+      <div class="legend">${VERDICT.map(([k, l, c]) => `<span><i style="background:${c}"></i>${l} <b class="num">${fmtN(v[k] || 0)}</b></span>`).join("")}</div>`;
+    const cats = [];
+    for (const [verdict, label] of [["deny", "denied"], ["ask", "parked"]]) for (const [c, n] of Object.entries(d.guard.by_category?.[verdict] || {})) cats.push([c, n, label]);
+    cats.sort((a, b) => b[1] - a[1]); const max = cats[0]?.[1] || 1;
+    $("#guard-cats").innerHTML = cats.length ? `<h2 style="font-size:13px">What it stopped</h2>` + cats.map(([c, n, l]) => `<div class="brow"><span class="k">${esc(c)}</span>
+      <div class="track"><div class="fill" style="width:${(n / max * 100).toFixed(1)}%;background:${l === "denied" ? "var(--critical-mark)" : "var(--warn-mark)"}"></div></div>
+      <span class="v">${fmtN(n)} ${l}</span></div>`).join("") : "";
+  }
+  const den = d.guard.recent_denials || [];
+  $("#denials").innerHTML = den.length ? den.map((x) => `<div class="den"><div class="top"><span class="mono">${esc(x.task)}</span><span class="chip">${esc(x.category || "?")}</span><span>${esc(x.tool)}</span><span>${when(x.ts)}</span></div><div class="reason">${esc(x.reason)}</div></div>`).join("")
+    : `<div class="empty">The guard denied nothing in this period.</div>`;
+}
+
+function renderSettings() {
+  $("#bin").value = store.get("bin", DEFAULT_BIN);
+  const app = !!desktop?.childProcess;
+  $("#bin-save").disabled = !app; $("#tray-btn").disabled = !app || trayOn; $("#perm-btn").disabled = !app;
+  $("#tray-btn").textContent = trayOn ? "Shown in the menu bar" : "Show approvals in the menu bar";
+}
+
+// ---------- events ----------
+let toastTimer;
+function toast(msg) { let t = $(".toast"); if (!t) { t = document.createElement("div"); t.className = "toast"; t.setAttribute("role", "status"); document.body.appendChild(t); } t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2600); }
+
+document.addEventListener("click", async (e) => {
+  const el = e.target.closest("button"); if (!el) return;
+  if (el.dataset.copy) { try { await navigator.clipboard.writeText(el.dataset.copy); toast("Copied: " + el.dataset.copy); } catch { toast(el.dataset.copy); } }
+  else if (el.dataset.metric) { ui.metric = el.dataset.metric; setPressed("[data-metric]", "metric", ui.metric); renderChart(data || exampleSnapshot(ui.days)); }
+  else if (el.dataset.by) { ui.by = el.dataset.by; setPressed("[data-by]", "by", ui.by); renderBreakdown(data || exampleSnapshot(ui.days)); }
+  else if (el.dataset.filter) { ui.filter = el.dataset.filter; store.set("filter", ui.filter); setPressed("[data-filter]", "filter", ui.filter); renderQueue(data || exampleSnapshot(ui.days)); }
+  else if (el.dataset.report) openReport(el.dataset.report);
+  else if (el.dataset.act === "settings") toggleSettings(true);
+});
+function toggleSettings(open) { const s = $("#settings"); s.hidden = open === undefined ? !s.hidden : !open; $("#settings-btn").setAttribute("aria-expanded", String(!s.hidden)); renderSettings(); }
+$("#settings-btn").onclick = () => toggleSettings();
+$("#bin-save").onclick = () => { const v = $("#bin").value.trim() || DEFAULT_BIN; store.set("bin", v); toast("Saved"); load(); };
+$("#tray-btn").onclick = () => enableTray();
+$("#perm-btn").onclick = () => desktop?.permissions.manage().catch((e) => toast(e.message));
+$("#refresh").onclick = () => { if (desktop?.childProcess && source === "live") load(); else render(); };
+$("#days").value = String(ui.days);
+$("#days").onchange = () => { ui.days = Number($("#days").value); store.set("days", ui.days); if (source === "live") load(); else render(); };
+setPressed("[data-filter]", "filter", ui.filter);
+let resizeTimer; new ResizeObserver(() => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => renderChart(data || exampleSnapshot(ui.days)), 80); }).observe($("#chart"));
+
+let timer;
+function startTimer() { clearInterval(timer); timer = setInterval(() => { if (document.visibilityState === "visible" || trayOn) load(); }, REFRESH_MS); }
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && source === "live") load(); });
+
+render();
+
+// ---------- boot ----------
+(async () => {
+  desktop = window.claude?.use ? await window.claude.use("desktop").catch(() => null) : null;
+  if (!desktop?.fs) {
+    try { gateMode = desktop?.install && (await desktop.install.state()) === "available" ? "install" : "elsewhere"; } catch { gateMode = "elsewhere"; }
+    render(); return;
+  }
+  document.body.classList.add("in-app");
+  desktop.app.dock.setIcon(drawIcon(256, false)).catch(() => {});
+  const want = { titleBarStyle: "hiddenInset", dragHeight: 52, minWidth: 420, minHeight: 480 };
+  try { const { applied } = await desktop.window.getOptions(); if (!Object.entries(want).every(([k, v]) => applied?.[k] === v)) await desktop.window.setOptions(want); } catch {}
+  let st = {};
+  try { st = await desktop.permissions.state(); } catch {}
+  if (st["menu-bar"] === "granted" && store.get("tray", false)) trayOn = true;
+  if (st["full-access"] === "granted") { gateMode = "none"; await load(); startTimer(); }
+  else { gateMode = st["full-access"] === "denied" ? "denied" : st["full-access"] === "prompt" ? "connect" : "unavailable"; render(); }
+  renderSettings();
+})();
+</script>

@@ -42,7 +42,7 @@ def records(days: int) -> list[dict]:
 
 
 def _bucket() -> dict:
-    return {"calls": 0, "tokens": 0, "output": 0, "cost_usd": 0.0, "turns": 0}
+    return {"calls": 0, "tokens": 0, "output": 0, "cost_usd": 0.0, "turns": 0, "seconds": 0}
 
 
 def _add(b: dict, r: dict) -> None:
@@ -51,6 +51,7 @@ def _add(b: dict, r: dict) -> None:
     b["output"] += int(r.get("tokens", {}).get("output") or 0)
     b["cost_usd"] = round(b["cost_usd"] + float(r.get("cost_usd") or 0), 4)
     b["turns"] += int(r.get("turns") or 0)
+    b["seconds"] += int(r.get("seconds") or 0)
 
 
 def summarize(days: int) -> dict:
@@ -58,7 +59,7 @@ def summarize(days: int) -> dict:
     meta = {t.id: t for t in tasks.all_tasks()}
     total = _bucket()
     cache = {"read": 0, "write": 0, "input": 0}
-    by = {k: defaultdict(_bucket) for k in ("mode", "phase", "repo", "type")}
+    by = {k: defaultdict(_bucket) for k in ("mode", "phase", "repo", "type", "day")}
     per_task: dict[str, dict] = {}
     for r in recs:
         _add(total, r)
@@ -70,6 +71,7 @@ def summarize(days: int) -> dict:
         _add(by["phase"][r.get("phase") or "?"], r)
         _add(by["repo"][r.get("repo") or f"({r.get('type')})"], r)
         _add(by["type"][r.get("type") or "?"], r)
+        _add(by["day"][str(r.get("ts", ""))[:10] or "?"], r)
         tid = r.get("task", "?")
         t = per_task.setdefault(tid, {**_bucket(), "id": tid, "modes": set(), "phases": set(), "max_attempt": 0})
         _add(t, r)
@@ -97,6 +99,7 @@ def summarize(days: int) -> dict:
         "by_phase": dict(by["phase"]),
         "by_repo": dict(by["repo"]),
         "by_type": dict(by["type"]),
+        "by_day": dict(sorted(by["day"].items())),
         "tasks": task_rows,
     }
 
