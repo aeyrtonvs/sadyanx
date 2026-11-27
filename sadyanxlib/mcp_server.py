@@ -5,6 +5,7 @@ this Mac (`host:sadyanx`). That is a much narrower door than letting the page ru
 these three tools are all it can reach.
 
   status   the snapshot `sadyanx status --json` prints (read-only)
+  report   a task's report, runs/<task>/report.md (read-only)
   approve  `sadyanx approve <task> <approval>`: one named approval, never --all
   reject   `sadyanx reject <task> <approval> [--reason ...]`
 
@@ -30,6 +31,7 @@ PROTOCOL_VERSION = "2025-06-18"
 TASK_ID = re.compile(r"^[A-Za-z0-9_-]{1,16}$")
 APPROVAL_ID = re.compile(r"^[0-9a-f]{8}$")
 MAX_REASON = 300
+MAX_REPORT = 256 * 1024
 AGENT_ENV = ("SADYANX_GUARD_CTX", "SADYANX_TASK_ID")
 
 _ID_PROPS = {
@@ -46,6 +48,15 @@ TOOLS = [
         "inputSchema": {"type": "object", "properties": {
             "days": {"type": "integer", "minimum": 1, "maximum": 365, "default": 30,
                      "description": "Window for usage and guard numbers"}}, "additionalProperties": False},
+        "annotations": {"readOnlyHint": True, "openWorldHint": False},
+    },
+    {
+        "name": "report",
+        "title": "A task's report",
+        "description": "The Markdown report of one task (runs/<task>/report.md): what was done, the "
+                       "acceptance criteria with their evidence, gates, reviews and CI. Changes nothing.",
+        "inputSchema": {"type": "object", "properties": {"task": dict(_ID_PROPS["task"])}, "required": ["task"],
+                        "additionalProperties": False},
         "annotations": {"readOnlyHint": True, "openWorldHint": False},
     },
     {
@@ -91,6 +102,23 @@ def _cli(args: list[str], timeout: int, run=subprocess.run) -> str:
     return proc.stdout
 
 
+def _report(task: str) -> str:
+    """Only runs/<task>/report.md, and only if it really is that file (no link out of runs/)."""
+    runs = paths.runs_dir().resolve()
+    f = paths.run_dir(task) / "report.md"
+    try:
+        real = f.resolve(strict=True)
+    except (FileNotFoundError, RuntimeError):
+        raise ToolError(f"task {task} has no report yet") from None
+    if real != runs / task / "report.md" or not real.is_file():
+        raise ToolError(f"task {task} has no report it may show")
+    data = real.read_bytes()
+    text = data[:MAX_REPORT].decode("utf-8", errors="replace")
+    if len(data) > MAX_REPORT:
+        text += f"\n\n_(cut at {MAX_REPORT // 1024} KB; the whole report is in {real})_\n"
+    return text
+
+
 def call(name: str, arguments: dict, env: dict, run=subprocess.run) -> str:
     """Run one tool; returns its text result or raises ToolError."""
     if any(env.get(k) for k in AGENT_ENV):
@@ -106,6 +134,13 @@ def call(name: str, arguments: dict, env: dict, run=subprocess.run) -> str:
         except json.JSONDecodeError:
             raise ToolError("sadyanx status did not print JSON: " + out.strip()[:200]) from None
         return out
+    if name == "report":
+        if set(args) - {"task"}:
+            raise ToolError("unexpected arguments: " + ", ".join(sorted(set(args) - {"task"})))
+        task = args.get("task")
+        if not isinstance(task, str) or not TASK_ID.fullmatch(task):
+            raise ToolError("task must be a task id such as 0005")
+        return _report(task)
     if name in ("approve", "reject"):
         extra = set(args) - {"task", "approval"} - ({"reason"} if name == "reject" else set())
         if extra:

@@ -1,13 +1,15 @@
 import io
 import json
+import os
 import subprocess
+import tempfile
 import sys
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from sadyanxlib import mcp_server  # noqa: E402
+from sadyanxlib import mcp_server, paths  # noqa: E402
 
 
 class FakeRun:
@@ -35,7 +37,8 @@ class TestMcpServer(unittest.TestCase):
         self.assertIsNone(mcp_server.handle({"jsonrpc": "2.0", "method": "notifications/initialized"}, {}))
         tools = {t["name"]: t for t in mcp_server.handle({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}, {})
                  ["result"]["tools"]}
-        self.assertEqual(set(tools), {"status", "approve", "reject"})
+        self.assertEqual(set(tools), {"status", "report", "approve", "reject"})
+        self.assertTrue(tools["report"]["annotations"]["readOnlyHint"])
         self.assertTrue(tools["status"]["annotations"]["readOnlyHint"])
         self.assertFalse(tools["approve"]["annotations"]["readOnlyHint"])  # the app asks before running it
         err = mcp_server.handle({"jsonrpc": "2.0", "id": 3, "method": "resources/list"}, {})
@@ -115,6 +118,50 @@ class TestMcpServer(unittest.TestCase):
         self.assertEqual(replies[0], {"jsonrpc": "2.0", "id": 1, "result": {}})
         self.assertEqual(replies[1]["error"]["code"], -32700)
         self.assertEqual(len(replies), 2)
+
+
+
+class TestReportTool(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        os.environ["SADYANX_ROOT"] = self.tmp.name
+        (paths.run_dir("0005")).mkdir(parents=True)
+        (paths.run_dir("0005") / "report.md").write_text("# 0005 — Deploy\n\n- **Status:** done\n")
+
+    def tearDown(self):
+        os.environ.pop("SADYANX_ROOT", None)
+        self.tmp.cleanup()
+
+    def test_reads_the_report_without_the_cli(self):
+        run = FakeRun()
+        self.assertEqual(call("report", {"task": "0005"}, run=run), (False, "# 0005 — Deploy\n\n- **Status:** done\n"))
+        self.assertEqual(run.calls, [])
+
+    def test_missing_or_bad(self):
+        self.assertEqual(call("report", {"task": "0006"}), (True, "task 0006 has no report yet"))
+        for args in ({"task": "../config"}, {"task": "0005/../../x"}, {}, {"task": "0005", "path": "/etc/passwd"}):
+            with self.subTest(args=args):
+                self.assertTrue(call("report", args)[0])
+
+    def test_no_link_out_of_runs(self):
+        secret = Path(self.tmp.name) / "config" / "sadyanx.toml"
+        secret.parent.mkdir()
+        secret.write_text("token = 'x'")
+        (paths.run_dir("0007")).mkdir()
+        (paths.run_dir("0007") / "report.md").symlink_to(secret)
+        err, text = call("report", {"task": "0007"})
+        self.assertTrue(err)
+        self.assertNotIn("token", text)
+
+    def test_big_reports_are_cut(self):
+        (paths.run_dir("0005") / "report.md").write_text("x" * (mcp_server.MAX_REPORT + 10))
+        err, text = call("report", {"task": "0005"})
+        self.assertFalse(err)
+        self.assertIn("cut at 256 KB", text)
+        self.assertLess(len(text), mcp_server.MAX_REPORT + 300)
+
+    def test_refused_inside_an_agent_session(self):
+        self.assertTrue(call("report", {"task": "0005"}, env={"SADYANX_TASK_ID": "0005"})[0])
 
 
 if __name__ == "__main__":

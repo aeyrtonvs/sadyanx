@@ -60,6 +60,30 @@ class TestStatus(unittest.TestCase):
         self.assertEqual({d["category"] for d in g["recent_denials"]}, {"secrets", "write"})
         self.assertEqual(g["recent_denials"][0]["task"], self.parked.id)
 
+    def test_model_free_work_is_counted_not_estimated(self):
+        now = tasks.now()
+        lines = [
+            f"[{now}] gate: make lint", f"[{now}] gate: make test", f"[{now}] setup: make setup",
+            f"[{now}] verification failed: 2 problem(s)", f"[{now}] verification passed",
+            f"[{now}] pushing feature/x (3 commits)", f"[{now}] PR opened: https://example.com/pr/1",
+            f"[{now}] pushing 1 commit(s) to the PR (feature/x)",
+            f"[{now}] CI: AWS CodeBuild passed on 50a9a56e (https://example.com/run)",
+            f"[{now}] CI: Bitbucket Pipelines failed on c09628a3: lint",
+            f"[{now}] CI: rerunning AWS CodeBuild on c09628a3 once (the agent judged it transient)",
+            # not counted: they are not a CI result, or a model did the work
+            f"[{now}] CI: could not read AWS CodeBuild (expired)",
+            f"[{now}] CI: no AWS CodeBuild run for af5e4e50 started within 10 min; applying the review first",
+            f"[{now}] plan check: as expected", f"[{now}] review passed", f"[{now}] jira: moved",
+            f"[{now}] code review: 2 finding(s) ($0.40)",
+            "[2000-01-01T00:00:00] gate: old", "garbage line", "",
+        ]
+        (paths.run_dir(self.done.id)).mkdir(parents=True, exist_ok=True)
+        (paths.run_dir(self.done.id) / "events.log").write_text("\n".join(lines) + "\n")
+        self.assertEqual(status.model_free(30), {"gates": 2, "setup": 1, "verifications": 2, "pushes": 2,
+                                                 "prs_opened": 1, "ci_results": 2, "ci_reruns": 1})
+        self.assertIn("without a model: 2 gate runs, 1 setup commands", status.render(30))
+        self.assertEqual(status.snapshot(30)["model_free"]["gates"], 2)
+
     def test_kill_switch_render_and_json(self):
         paths.kill_file().parent.mkdir(parents=True, exist_ok=True)
         paths.kill_file().write_text("now")

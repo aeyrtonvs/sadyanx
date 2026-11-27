@@ -59,7 +59,7 @@ def summarize(days: int) -> dict:
     meta = {t.id: t for t in tasks.all_tasks()}
     total = _bucket()
     cache = {"read": 0, "write": 0, "input": 0}
-    by = {k: defaultdict(_bucket) for k in ("mode", "phase", "repo", "type", "day")}
+    by = {k: defaultdict(_bucket) for k in ("mode", "model", "effort", "model_effort", "phase", "repo", "type", "day")}
     per_task: dict[str, dict] = {}
     for r in recs:
         _add(total, r)
@@ -68,6 +68,9 @@ def summarize(days: int) -> dict:
         cache["write"] += int(tok.get("cache_write") or 0)
         cache["input"] += int(tok.get("input") or 0)
         _add(by["mode"][r.get("mode") or "?"], r)
+        _add(by["model"][r.get("model") or "?"], r)
+        _add(by["effort"][r.get("effort") or "?"], r)
+        _add(by["model_effort"][f"{r.get('model') or '?'}/{r.get('effort') or '?'}"], r)
         _add(by["phase"][r.get("phase") or "?"], r)
         _add(by["repo"][r.get("repo") or f"({r.get('type')})"], r)
         _add(by["type"][r.get("type") or "?"], r)
@@ -96,6 +99,9 @@ def summarize(days: int) -> dict:
         "total": total,
         "cache_hit_ratio": round(cache["read"] / seen, 3) if seen else 0.0,
         "by_mode": dict(by["mode"]),
+        "by_model": dict(by["model"]),
+        "by_effort": dict(by["effort"]),
+        "by_model_effort": dict(by["model_effort"]),
         "by_phase": dict(by["phase"]),
         "by_repo": dict(by["repo"]),
         "by_type": dict(by["type"]),
@@ -132,6 +138,7 @@ def render(days: int) -> str:
         "  (est $ is list price; on a Max plan what runs out is the usage quota)",
     ]
     lines += _table("by mode", s["by_mode"], t["tokens"])
+    lines += _table("by model / effort", s["by_model_effort"], t["tokens"])
     lines += _table("by phase  (work = first try, fix = after failed gates)", s["by_phase"], t["tokens"])
     lines += _table("by repo", s["by_repo"], t["tokens"])
     lines.append("\ntop tasks")

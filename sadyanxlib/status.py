@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import re
 from collections import Counter, defaultdict
 
 from . import approvals, paths, persona, runner, tasks, usage
@@ -18,6 +19,18 @@ from . import approvals, paths, persona, runner, tasks, usage
 TASK_FIELDS = ("title", "status", "type", "repo", "mode", "effort", "phase", "attempts", "cost_usd",
                "jira", "pr_url", "doc_url", "report", "reason", "created", "updated")
 RECENT_DENIALS = 15
+EVENT = re.compile(r"^\[([^\]]+)\] (.*)$")
+# Work the harness does itself, with no model: counted from events.log, never estimated. Steps that
+# use a model (reviews, plan check, Jira, Slack) are in the usage numbers instead.
+MODEL_FREE = [
+    ("gates", "gate runs", re.compile(r"^gate: ")),
+    ("setup", "setup commands", re.compile(r"^setup: ")),
+    ("verifications", "verifications", re.compile(r"^verification (?:passed|failed)\b")),
+    ("pushes", "pushes", re.compile(r"^pushing ")),
+    ("prs_opened", "PRs opened", re.compile(r"^PR opened: ")),
+    ("ci_results", "CI results read", re.compile(r"^CI: (?!rerunning\b|could not\b|no\b).* on [0-9a-f]{8}\b")),
+    ("ci_reruns", "CI reruns", re.compile(r"^CI: rerunning ")),
+]
 REASON_CHARS = 240
 
 
@@ -46,6 +59,22 @@ def guard_summary(days: int) -> dict:
     recent.sort(key=lambda r: r["ts"], reverse=True)
     return {"verdicts": dict(verdicts), "by_category": {v: dict(c) for v, c in stopped.items()},
             "recent_denials": recent[:RECENT_DENIALS]}
+
+
+def model_free(days: int) -> dict:
+    """How many times the harness did each model-free step in the window."""
+    since = (dt.datetime.now() - dt.timedelta(days=days)).isoformat()
+    counts = {key: 0 for key, _, _ in MODEL_FREE}
+    for f in sorted(paths.runs_dir().glob("*/events.log")):
+        for line in f.read_text(encoding="utf-8", errors="replace").splitlines():
+            m = EVENT.match(line)
+            if not m or m.group(1) < since:
+                continue
+            for key, _, pattern in MODEL_FREE:
+                if pattern.match(m.group(2)):
+                    counts[key] += 1
+                    break
+    return counts
 
 
 def _task_row(t: tasks.Task) -> dict:
@@ -90,6 +119,7 @@ def snapshot(days: int) -> dict:
         "pending_approvals": pending,
         "tasks": task_rows,
         "guard": guard_summary(days),
+        "model_free": model_free(days),
         "usage": usage.summarize(days),
     }
 
@@ -113,6 +143,8 @@ def render(days: int) -> str:
         f"guard, last {s['days']} days: {v.get('allow', 0)} allowed, {v.get('deny', 0)} denied, "
         f"{v.get('ask', 0)} parked for approval",
         f"agents, last {s['days']} days: {u['calls']} calls, {u['tokens']:,} tokens, est ${u['cost_usd']:.2f}",
+        "without a model: " + (", ".join(f"{s['model_free'][key]} {label}" for key, label, _ in MODEL_FREE
+                                         if s["model_free"][key]) or "nothing yet"),
     ]
     for r in s["tasks"]:
         for p in r["pending"]:

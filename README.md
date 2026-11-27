@@ -183,8 +183,8 @@ The same is available as a CLI (`sadyanx --help`): `add`, `list`, `show`, `run`,
 
 `app/dashboard.html` is a Mac app built as a claude.ai artifact: the queue, the approvals waiting
 for you, tokens per day and by mode, phase or repo, the first-pass rate, and what the guard
-stopped. It reaches sadyanx only through `sadyanx mcp`, a local MCP server with three tools:
-`status`, `approve` and `reject`. Approve… or Reject… on a pending action, confirmed in its
+stopped. It reaches sadyanx only through `sadyanx mcp`, a local MCP server with four tools:
+`status` and `report` (read-only), `approve` and `reject`. Approve… or Reject… on a pending action, confirmed in its
 card, decides exactly that action. Not while the kill switch is on. Agents can never use it.
 
 1. Register the server where the Claude desktop app looks for local MCP servers: in the Claude
@@ -196,7 +196,7 @@ card, decides exactly that action. Not while the kill switch is on. Agents can n
    Claude Code sessions use their own list; to call it from there too:
    `claude mcp add --scope user sadyanx -- <python> <repo>/bin/sadyanx mcp`.
 2. Publish `app/dashboard.html` as an artifact with the `desktop` capability and the MCP server
-   `host:sadyanx` (tools `status`, `approve`, `reject`); asking Claude in the Claude desktop app
+   `host:sadyanx` (tools `status`, `report`, `approve`, `reject`); asking Claude in the Claude desktop app
    to publish it is enough. Keep it private.
 3. In the Claude desktop app, open it, choose **Install as app**, and press **Connect**.
 

@@ -125,6 +125,12 @@ select.btn { padding-right: 6px; }
 @media (max-width: 980px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
+/* model-free work */
+.mf { display: flex; flex-wrap: wrap; gap: 10px 28px; }
+.mf div { display: grid; gap: 0; min-width: 0; }
+.mf .n { font-family: var(--font-data); font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.mf .l { font-size: 12px; color: var(--ink-2); }
+
 /* panels */
 .grid2 { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 20px; }
 @media (max-width: 900px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
@@ -186,6 +192,25 @@ td .links { display: flex; gap: 8px; flex-wrap: wrap; }
 .den .reason { font-size: 13px; word-break: break-word; }
 .chip { font-size: 11px; border: 1px solid var(--line); border-radius: 5px; padding: 0 6px; color: var(--ink-2); font-family: var(--font-data); }
 
+/* report reader */
+.reader { position: fixed; inset: 0; z-index: 30; background: rgba(10, 14, 20, .38); display: flex; justify-content: flex-end; }
+.reader-panel { background: var(--surface); width: min(780px, 100%); height: 100%; overflow: auto; border-left: 1px solid var(--line); padding-block: calc(14px + env(safe-area-inset-top, 0px)) calc(32px + env(safe-area-inset-bottom, 0px)); padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); display: grid; gap: 12px; align-content: start; }
+.reader-head { display: flex; align-items: center; gap: 10px; position: sticky; top: calc(-14px - env(safe-area-inset-top, 0px)); background: var(--surface); padding-block: 6px; border-bottom: 1px solid var(--line); }
+.reader-head h2 { margin-right: auto; }
+.md { line-height: 1.55; min-width: 0; overflow-wrap: anywhere; }
+.md h1 { font-family: var(--font-display); font-size: 20px; margin: 4px 0 10px; text-wrap: balance; }
+.md h2 { font-size: 16px; margin: 22px 0 8px; }
+.md h3, .md h4 { font-size: 14px; margin: 18px 0 6px; }
+.md p { margin: 8px 0; max-width: 72ch; }
+.md ul, .md ol { margin: 6px 0; padding-left: 22px; }
+.md li { margin: 3px 0; }
+.md code { font-family: var(--font-data); font-size: 12.5px; background: var(--sunken); border-radius: 4px; padding: 1px 4px; }
+.md pre { background: var(--sunken); border-radius: 8px; padding: 10px 12px; overflow-x: auto; font-size: 12px; }
+.md pre code { background: none; padding: 0; }
+.md .tbl { overflow-x: auto; margin: 8px 0; }
+.md table { font-size: 12.5px; }
+.md th { text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--ink-2); }
+
 /* settings */
 .settings { display: grid; gap: 12px; }
 .field { display: grid; gap: 6px; }
@@ -221,7 +246,7 @@ td .links { display: flex; gap: 8px; flex-wrap: wrap; }
     <div class="panel-head"><h2>Settings</h2></div>
     <div class="field">
       <label>Connection</label>
-      <span class="help">This app talks to sadyanx through its local MCP server, which offers three tools and nothing else: <code>status</code>, <code>approve</code> and <code>reject</code>. Register it once in the Claude app: <strong>Settings → Developer → Edit Config</strong>, add under <code>"mcpServers"</code> the entry this command prints, then quit and reopen the Claude app:</span>
+      <span class="help">This app talks to sadyanx through its local MCP server, which offers four tools and nothing else: <code>status</code>, <code>report</code>, <code>approve</code> and <code>reject</code>. Register it once in the Claude app: <strong>Settings → Developer → Edit Config</strong>, add under <code>"mcpServers"</code> the entry this command prints, then quit and reopen the Claude app:</span>
       <div class="row"><input id="setup-cmd" type="text" readonly value="~/.local/bin/sadyanx mcp --config" aria-label="Setup command"><button class="btn" type="button" data-copy-from="setup-cmd">Copy</button></div>
     </div>
     <div class="field">
@@ -237,6 +262,11 @@ td .links { display: flex; gap: 8px; flex-wrap: wrap; }
   <section class="attn" id="attention" aria-live="polite"></section>
 
   <section class="kpis" id="kpis" aria-label="Summary"></section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Done without a model</h2><span class="hint" id="mf-hint"></span></div>
+    <div class="mf" id="model-free"></div>
+  </section>
 
   <div class="grid2">
     <section class="panel">
@@ -254,11 +284,14 @@ td .links { display: flex; gap: 8px; flex-wrap: wrap; }
     <section class="panel">
       <div class="panel-head">
         <h2>Where the tokens go</h2>
-        <div class="seg" role="group" aria-label="Group by">
-          <button type="button" data-by="mode" aria-pressed="true">Mode</button>
-          <button type="button" data-by="phase" aria-pressed="false">Phase</button>
-          <button type="button" data-by="repo" aria-pressed="false">Repo</button>
-        </div>
+        <select class="btn" id="group-by" aria-label="Group by">
+          <option value="mode">By mode</option>
+          <option value="model">By model</option>
+          <option value="effort">By effort</option>
+          <option value="model_effort">By model · effort</option>
+          <option value="phase">By phase</option>
+          <option value="repo">By repo</option>
+        </select>
       </div>
       <div class="rows" id="breakdown"></div>
     </section>
@@ -288,6 +321,13 @@ td .links { display: flex; gap: 8px; flex-wrap: wrap; }
   </div>
 </main>
 
+<div class="reader" id="reader" hidden>
+  <section class="reader-panel" role="dialog" aria-modal="true" aria-labelledby="reader-title">
+    <div class="reader-head"><h2 id="reader-title">Report</h2><button class="btn" type="button" id="reader-close">Close</button></div>
+    <div class="md" id="reader-body"></div>
+  </section>
+</div>
+
 <script type="module">
 const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -297,7 +337,8 @@ const store = {
 };
 const REFRESH_MS = 60_000;
 
-const ui = { metric: "tokens", by: "mode", filter: store.get("filter", "all"), days: store.get("days", 30) };
+const GROUPS = ["mode", "model", "effort", "model_effort", "phase", "repo"];
+const ui = { metric: "tokens", by: GROUPS.includes(store.get("by", "mode")) ? store.get("by", "mode") : "mode", filter: store.get("filter", "all"), days: store.get("days", 30) };
 let data = null, source = "example", error = "", desktop = null, mcp = null, trayOn = false, busy = false, lastCode = "";
 
 // ---------- formatting ----------
@@ -337,6 +378,7 @@ function exampleSnapshot(days) {
       t("0002", "PROJ-1229: fix the flaky checkout test", "blocked", { cost_usd: 1.12, reason: "needs a test database URL" }),
       t("0001", "PROJ-1221: rename the billing env vars", "done", { cost_usd: 0.77, pr_url: "https://example.com/pr/9" }),
     ],
+    model_free: { gates: 34, setup: 4, verifications: 15, pushes: 8, prs_opened: 3, ci_results: 6, ci_reruns: 1 },
     guard: { verdicts: { allow: 412, deny: 9, ask: 3 }, by_category: { deny: { write: 6, secrets: 2, forbidden: 1 }, ask: { deploy: 2, comment: 1 } },
       recent_denials: [
         { ts: now, task: "0006", tool: "Bash", category: "write", reason: "no writing outside the worktree: ~/Library/Caches/example" },
@@ -344,6 +386,9 @@ function exampleSnapshot(days) {
       ] },
     usage: { days, total: { ...tot, output: tot.output }, cache_hit_ratio: 0.93,
       by_mode: { smart: b(0.72), balanced: b(0.2), cheap: b(0.08) },
+      by_model: { opus: b(0.72), sonnet: b(0.2), haiku: b(0.08) },
+      by_effort: { high: b(0.5), xhigh: b(0.16), max: b(0.06), medium: b(0.2), low: b(0.08) },
+      by_model_effort: { "opus/high": b(0.5), "opus/xhigh": b(0.16), "opus/max": b(0.06), "sonnet/medium": b(0.2), "haiku/low": b(0.08) },
       by_phase: { work: b(0.55), fix: b(0.25), review: b(0.12), "pr-ci": b(0.08) },
       by_repo: { "work-api": b(0.6), "infra-iac": b(0.3), "(research)": b(0.1) },
       by_day, tasks: [{ id: "0004", status: "done", first_pass: true }, { id: "0003", status: "done", first_pass: true }, { id: "0001", status: "done", first_pass: false }] },
@@ -427,7 +472,7 @@ function render() {
   $("#source-label").textContent = source === "live" ? `your harness · ${d.root || ""}` : "example data";
   $("#stamp").textContent = source === "live" && d.generated ? "updated " + new Date(d.generated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
   const kp = $("#kill-pill"); kp.className = "pill " + (d.kill_switch ? "critical" : "good"); kp.textContent = d.kill_switch ? "kill switch ON" : "kill switch off";
-  renderGate(); renderAttention(d); renderKpis(d); renderChart(d); renderBreakdown(d); renderQueue(d); renderGuard(d);
+  renderGate(); renderAttention(d); renderKpis(d); renderModelFree(d); renderChart(d); renderBreakdown(d); renderQueue(d); renderGuard(d);
 }
 
 function renderGate() {
@@ -504,6 +549,76 @@ function renderAttention(d) {
   }
 }
 
+// ---------- reports ----------
+// A small Markdown renderer for the harness's own reports. Everything is escaped first; the only
+// markup that comes back is the handful of tags below, and links only when they are https.
+function md(src) {
+  const inline = (t) => esc(t)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  const out = []; const lines = String(src).replace(/\r/g, "").split("\n");
+  let list = null, para = [];
+  const flushPara = () => { if (para.length) { out.push(`<p>${inline(para.join(" "))}</p>`); para = []; } };
+  const flushList = () => { if (list) { out.push(`<${list.tag}>${list.items.map((i) => `<li>${inline(i)}</li>`).join("")}</${list.tag}>`); list = null; } };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^```/.test(line)) {
+      flushPara(); flushList(); const code = [];
+      while (++i < lines.length && !/^```/.test(lines[i])) code.push(lines[i]);
+      out.push(`<pre><code>${esc(code.join("\n"))}</code></pre>`); continue;
+    }
+    if (/^\s*\|/.test(line)) {
+      flushPara(); flushList(); const rows = [];
+      for (; i < lines.length && /^\s*\|/.test(lines[i]); i++) rows.push(lines[i]);
+      i--;
+      const cells = (r) => r.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+      const body = rows.filter((r) => !/^\s*\|?\s*:?-{2,}/.test(r));
+      const [head, ...rest] = body;
+      out.push(`<div class="tbl"><table><thead><tr>${cells(head).map((c) => `<th>${inline(c)}</th>`).join("")}</tr></thead><tbody>${rest.map((r) => `<tr>${cells(r).map((c) => `<td>${inline(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
+      continue;
+    }
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
+    if (h) { flushPara(); flushList(); const n = Math.min(4, h[1].length); out.push(`<h${n}>${inline(h[2])}</h${n}>`); continue; }
+    const ul = line.match(/^\s*[-*]\s+(.*)$/), ol = line.match(/^\s*\d+\.\s+(.*)$/);
+    if (ul || ol) {
+      flushPara(); const tag = ul ? "ul" : "ol";
+      if (list && list.tag !== tag) flushList();
+      if (!list) list = { tag, items: [] };
+      list.items.push((ul || ol)[1]); continue;
+    }
+    if (!line.trim()) { flushPara(); flushList(); continue; }
+    if (list && /^\s{2,}\S/.test(line)) { list.items[list.items.length - 1] += " " + line.trim(); continue; }
+    flushList(); para.push(line.trim());
+  }
+  flushPara(); flushList();
+  return out.join("\n");
+}
+
+let readerFrom = null;
+async function openReport(task) {
+  if (!mcp || !TASK_ID.test(task)) return;
+  readerFrom = document.activeElement;
+  $("#reader-title").textContent = `Report · ${task}`;
+  $("#reader-body").innerHTML = `<p class="stamp">Loading…</p>`;
+  $("#reader").hidden = false; $("#reader-close").focus();
+  try {
+    const r = await mcp.callTool(SERVER, "report", { task }, { cache: false });
+    const text = typeof r.payload === "string" ? r.payload : r.content?.[0]?.text || "";
+    $("#reader-body").innerHTML = md(text);
+  } catch (e) {
+    const p = document.createElement("p"); p.className = "outcome bad";
+    p.textContent = e?.code === "tool_error" ? toolText(e)
+      : MCP_STATE[e?.code] === "setup" ? "The sadyanx MCP server is not running in this Claude app."
+      : `Could not load the report (${e?.code || "error"}). If the server was just updated, quit and reopen the Claude app.`;
+    $("#reader-body").replaceChildren(p);
+  }
+}
+function closeReport() { $("#reader").hidden = true; readerFrom?.focus?.(); }
+$("#reader-close").onclick = closeReport;
+$("#reader").addEventListener("click", (e) => { if (e.target.id === "reader") closeReport(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#reader").hidden) closeReport(); });
+
 // ---------- approve / reject ----------
 const decisions = {}; // "<task>/<approval id>" -> {open, busy, verb, error, done}
 const canDecide = () => source === "live" && !!mcp && !data?.kill_switch;
@@ -548,6 +663,17 @@ function renderKpis(d) {
     ["Guard denied", fmtN(v.deny || 0), `${fmtN(v.allow || 0)} allowed · ${fmtN(v.ask || 0)} parked`],
   ];
   $("#kpis").innerHTML = tiles.map(([l, val, n]) => `<div class="kpi"><span class="label">${esc(l)}</span><span class="value">${esc(val)}</span><span class="note">${esc(n)}</span></div>`).join("");
+}
+
+const MODEL_FREE = [["gates", "gate runs"], ["setup", "setup commands"], ["verifications", "verifications"],
+  ["pushes", "pushes"], ["prs_opened", "PRs opened"], ["ci_results", "CI results read"], ["ci_reruns", "CI reruns"]];
+function renderModelFree(d) {
+  const mf = d.model_free || {};
+  $("#mf-hint").textContent = `Steps the harness did itself in the last ${d.days} days: no model, no tokens. Counted from its logs, not estimated.`;
+  const items = MODEL_FREE.filter(([k]) => mf[k]);
+  $("#model-free").innerHTML = items.length
+    ? items.map(([k, l]) => `<div><span class="n">${fmtN(mf[k])}</span><span class="l">${esc(l)}</span></div>`).join("")
+    : `<div class="empty">Nothing yet in this period.</div>`;
 }
 
 function niceStep(max, n = 4) { if (max <= 0) return 1; const raw = max / n; const p = 10 ** Math.floor(Math.log10(raw)); const m = raw / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * p; }
@@ -611,6 +737,7 @@ function renderQueue(d) {
       const links = [];
       if (safeUrl(t.pr_url)) links.push(`<a href="${esc(t.pr_url)}" target="_blank" rel="noopener">PR</a>`);
       if (safeUrl(t.doc_url)) links.push(`<a href="${esc(t.doc_url)}" target="_blank" rel="noopener">Doc</a>`);
+      if (source === "live" && t.report) links.push(`<button class="linkbtn" type="button" data-report="${esc(t.id)}">Report</button>`);
       const why = t.reason && t.status !== "done" ? `<div class="why">${esc(t.reason)}</div>` : "";
       return `<tr><td class="mono">${esc(t.id)}</td><td><span class="pill ${STATUS[t.status] ?? ""}">${esc(t.status)}</span></td>
         <td class="t"><div class="ttl">${esc(t.title)}</div>${why}</td><td>${esc(t.repo || (t.type === "research" ? "research" : "–"))}</td>
@@ -653,8 +780,8 @@ document.addEventListener("click", async (e) => {
   const el = e.target.closest("button"); if (!el) return;
   if (el.dataset.copy) { try { await navigator.clipboard.writeText(el.dataset.copy); toast("Copied: " + el.dataset.copy); } catch { toast(el.dataset.copy); } }
   else if (el.dataset.metric) { ui.metric = el.dataset.metric; setPressed("[data-metric]", "metric", ui.metric); renderChart(data || exampleSnapshot(ui.days)); }
-  else if (el.dataset.by) { ui.by = el.dataset.by; setPressed("[data-by]", "by", ui.by); renderBreakdown(data || exampleSnapshot(ui.days)); }
   else if (el.dataset.filter) { ui.filter = el.dataset.filter; store.set("filter", ui.filter); setPressed("[data-filter]", "filter", ui.filter); renderQueue(data || exampleSnapshot(ui.days)); }
+  else if (el.dataset.report) openReport(el.dataset.report);
   else if (el.dataset.open) { decisions[el.dataset.key] = { open: el.dataset.open }; renderAttention(data || exampleSnapshot(ui.days)); document.getElementById(`reason-${el.dataset.key.replace("/", "-")}`)?.focus(); }
   else if (el.dataset.cancel) { delete decisions[el.dataset.cancel]; renderAttention(data || exampleSnapshot(ui.days)); }
   else if (el.dataset.decide) decide(el.dataset.decide, el.dataset.task, el.dataset.aid);
@@ -668,6 +795,8 @@ $("#settings-btn").onclick = () => toggleSettings();
 $("#tray-btn").onclick = () => enableTray();
 $("#perm-btn").onclick = () => desktop?.permissions.manage().catch((e) => toast(e.message));
 $("#refresh").onclick = () => { if (mcp) load(); else render(); };
+$("#group-by").value = ui.by;
+$("#group-by").onchange = () => { ui.by = $("#group-by").value; store.set("by", ui.by); renderBreakdown(data || exampleSnapshot(ui.days)); };
 $("#days").value = String(ui.days);
 $("#days").onchange = () => { ui.days = Number($("#days").value); store.set("days", ui.days); if (source === "live") load(); else render(); };
 setPressed("[data-filter]", "filter", ui.filter);

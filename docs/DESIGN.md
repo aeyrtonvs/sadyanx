@@ -431,15 +431,24 @@ many approvals wait.
   any program) to call the CLI. My organization does not allow full access for artifacts, for
   good reason: a page that can run anything is a large door. Now `sadyanx mcp` is a local stdio
   MCP server, registered once in the Claude desktop app's `claude_desktop_config.json` (the installed
-  app does not see Claude Code's `~/.claude.json`), and the page declares only `host:sadyanx` with three tools: `status`
-  (read-only), `approve` and `reject`. That is all the page can reach. Each call runs the CLI in
+  app does not see Claude Code's `~/.claude.json`), and the page declares only `host:sadyanx` with four tools: `status`
+  and `report` (read-only), `approve` and `reject`. That is all the page can reach. Each call runs the CLI in
   a fresh process with an argument list (no shell), so the CLI stays the single path to an
   approval and code changes apply without restarting the server. Ids are checked against their
   shape, `approve` never takes `--all`, and the Claude app may ask me to confirm the two writes.
 - **One source of truth.** `status` is `sadyanx status --json --days N`: the queue, pending
   approvals, the kill switch, the guard's verdicts (from `audit.jsonl`: totals, categories of
-  what it stopped, the latest denials) and `usage.summarize`, which now also has `by_day` and
-  agent seconds. Like `list`, it first marks a task whose runner is gone as `killed`.
+  what it stopped, the latest denials) and `usage.summarize`, which now also has `by_day`, agent
+  seconds and usage by model, by effort and by model/effort (effort alone mixes models). Like `list`, it first marks a task whose runner is gone as `killed`.
+- **Work done without a model, counted, never estimated.** `status` counts from `events.log`
+  the steps the harness does itself (gate runs, setup commands, verifications, pushes, PRs
+  opened, CI results read, CI reruns). Tokens not spent cannot be measured, so the dashboard
+  shows counts, not a "tokens saved" figure built on guesses. Steps that use a model (reviews,
+  plan check, Jira, Slack) stay in the usage numbers.
+- **Reports in the app.** `report` returns `runs/<task>/report.md` and nothing else: the id is
+  checked, the resolved path must be that file (a link out of `runs/` is refused) and it is cut
+  at 256 KB. The page renders it with its own small Markdown renderer that escapes everything
+  first and only links to https.
 - **Approve and reject, nothing else.** Each pending action shows its full text (a Slack reply
   in full) with Approve… and Reject…; the second click, inside the card, calls the tool once
   for the exact approval id it showed, so an action decided meanwhile is refused, never

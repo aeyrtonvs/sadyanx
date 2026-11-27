@@ -127,8 +127,11 @@ class TestUsage(unittest.TestCase):
         now = tasks.now()
 
         def rec(task, phase, attempt, mode, tok):
+            model, effort = {"smart": ("opus", "high"), "ultra": ("fable", "xhigh")}[mode]
+            if phase == "fix" and mode == "smart":
+                effort = "max"
             return {"ts": now, "task": task, "type": "code", "repo": "r1", "phase": phase, "attempt": attempt,
-                    "mode": mode, "model": "m", "effort": "e", "outcome": "done", "turns": 5, "seconds": 10,
+                    "mode": mode, "model": model, "effort": effort, "outcome": "done", "turns": 5, "seconds": 10,
                     "cost_usd": 0.5, "tokens": {"input": 10, "output": 90, "cache_read": tok, "cache_write": 0}}
 
         for tid, recs in (("0001", [rec("0001", "work", 1, "smart", 1000)]),
@@ -154,11 +157,17 @@ class TestUsage(unittest.TestCase):
         day = tasks.now()[:10]
         self.assertEqual(list(s["by_day"]), [day])
         self.assertEqual((s["by_day"][day]["calls"], s["total"]["seconds"]), (4, 40))
+        self.assertEqual({k: b["calls"] for k, b in s["by_model"].items()}, {"opus": 3, "fable": 1})
+        self.assertEqual({k: b["calls"] for k, b in s["by_effort"].items()}, {"high": 2, "max": 1, "xhigh": 1})
+        self.assertEqual(s["by_model_effort"]["opus/max"]["tokens"], 3000 + 100)
+        self.assertEqual(set(s["by_model_effort"]), {"opus/high", "opus/max", "fable/xhigh"})
 
     def test_render_and_json(self):
         text = usage.render(30)
         self.assertIn("4 agent calls", text)
         self.assertIn("Hard one", text)
+        self.assertIn("by model / effort", text)
+        self.assertIn("opus/max", text)
         self.assertEqual(json.loads(usage.as_json(30))["total"]["calls"], 4)
 
     def test_old_records_are_ignored(self):
