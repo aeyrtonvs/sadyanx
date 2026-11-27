@@ -27,6 +27,11 @@ def _total(tok: dict) -> int:
     return sum(int(tok.get(k) or 0) for k in ("input", "output", "cache_read", "cache_write"))
 
 
+def total_tokens(rec: dict) -> int:
+    """Every token of one agent call: input, output, cache reads and cache writes."""
+    return _total(rec.get("tokens", {}))
+
+
 def records(days: int) -> list[dict]:
     since = (dt.datetime.now() - dt.timedelta(days=days)).isoformat()
     out = []
@@ -42,13 +47,17 @@ def records(days: int) -> list[dict]:
 
 
 def _bucket() -> dict:
-    return {"calls": 0, "tokens": 0, "output": 0, "cost_usd": 0.0, "turns": 0, "seconds": 0}
+    return {"calls": 0, "tokens": 0, "output": 0, "cost_usd": 0.0, "turns": 0, "seconds": 0,
+            "input": 0, "cache_read": 0, "cache_write": 0}
 
 
 def _add(b: dict, r: dict) -> None:
+    tok = r.get("tokens", {})
     b["calls"] += 1
-    b["tokens"] += _total(r.get("tokens", {}))
-    b["output"] += int(r.get("tokens", {}).get("output") or 0)
+    b["tokens"] += _total(tok)
+    b["output"] += int(tok.get("output") or 0)
+    for k in ("input", "cache_read", "cache_write"):  # per day they give the cache hit rate's trend
+        b[k] += int(tok.get(k) or 0)
     b["cost_usd"] = round(b["cost_usd"] + float(r.get("cost_usd") or 0), 4)
     b["turns"] += int(r.get("turns") or 0)
     b["seconds"] += int(r.get("seconds") or 0)

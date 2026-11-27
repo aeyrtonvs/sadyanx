@@ -162,6 +162,10 @@ class TestUsage(unittest.TestCase):
         self.assertEqual(s["by_model_effort"]["opus/max"]["tokens"], 3000 + 100)
         self.assertEqual(set(s["by_model_effort"]), {"opus/high", "opus/max", "fable/xhigh"})
 
+    def test_cache_counts_per_day(self):
+        day = usage.summarize(30)["by_day"][tasks.now()[:10]]
+        self.assertEqual((day["cache_read"], day["cache_write"], day["input"]), (10000, 0, 40))
+
     def test_render_and_json(self):
         text = usage.render(30)
         self.assertIn("4 agent calls", text)

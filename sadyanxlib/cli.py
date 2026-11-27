@@ -11,7 +11,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import approvals, config, gitops, modes, net, paths, persona, runner, sandbox, slack, status, tasks, trust, usage
+from . import (approvals, config, gitops, modes, net, paths, persona, runner, sandbox, slack, status, tasks,
+               timeline, trust, usage)
 
 
 def die(msg: str, code: int = 1) -> None:
@@ -229,6 +230,9 @@ def cmd_unkill(a) -> None:
 
 def cmd_log(a) -> None:
     t = tasks.find(a.ref)
+    if a.json:  # the whole timeline (events, agent calls, approvals, denials), for the dashboard
+        print(json.dumps({**timeline.build(t.id), "title": t.title}, ensure_ascii=False))
+        return
     f = paths.run_dir(t.id) / "events.log"
     if not f.exists():
         die("the task has no events yet")
@@ -496,6 +500,8 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("log", help="a task's events")
     s.add_argument("ref")
     s.add_argument("-n", type=int, default=40)
+    s.add_argument("--json", action="store_true",
+                   help="the task's timeline: events, agent calls, approvals and guard denials, merged")
     s.set_defaults(fn=cmd_log)
 
     s = sub.add_parser("clean", help="delete a finished task's worktree")

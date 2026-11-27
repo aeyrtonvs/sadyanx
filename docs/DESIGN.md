@@ -431,8 +431,8 @@ many approvals wait.
   any program) to call the CLI. My organization does not allow full access for artifacts, for
   good reason: a page that can run anything is a large door. Now `sadyanx mcp` is a local stdio
   MCP server, registered once in the Claude desktop app's `claude_desktop_config.json` (the installed
-  app does not see Claude Code's `~/.claude.json`), and the page declares only `host:sadyanx` with four tools: `status`
-  and `report` (read-only), `approve` and `reject`. That is all the page can reach. Each call runs the CLI in
+  app does not see Claude Code's `~/.claude.json`), and the page declares only `host:sadyanx` with five tools: `status`,
+  `report` and `timeline` (read-only), `approve` and `reject`. That is all the page can reach. Each call runs the CLI in
   a fresh process with an argument list (no shell), so the CLI stays the single path to an
   approval and code changes apply without restarting the server. Ids are checked against their
   shape, `approve` never takes `--all`, and the Claude app may ask me to confirm the two writes.
@@ -449,6 +449,14 @@ many approvals wait.
   checked, the resolved path must be that file (a link out of `runs/` is refused) and it is cut
   at 256 KB. The page renders it with its own small Markdown renderer that escapes everything
   first and only links to https.
+- **A timeline beside the report.** `timeline` is `sadyanx log <task> --json`: one ordered list
+  merged from the task's run files: `events.log` (each line classified by what it is about, a
+  line without a timestamp kept as the detail of the one above), `usage.jsonl` (each agent call
+  with its tokens, cost and time), `approvals.json` (parked, then approved or rejected; the
+  runner's own "waiting for approval" line is dropped so it shows once) and `audit.jsonl` (only
+  denials: allowed calls are noise, parked ones are approvals). The latest 400 events. It answers
+  why a task cost what it did or where it went wrong without opening the files; a lighter take on
+  oh-my-hi's session replay, which needs per-turn context data sadyanx does not keep.
 - **Approve and reject, nothing else.** Each pending action shows its full text (a Slack reply
   in full) with Approve… and Reject…; the second click, inside the card, calls the tool once
   for the exact approval id it showed, so an action decided meanwhile is refused, never
@@ -463,6 +471,22 @@ many approvals wait.
   file itself, so no write rule saw it); now the CLI, `python bin/sadyanx` and Python importing
   `sadyanxlib` are forbidden to agents. Python code an agent writes could still reach the
   approval files outside the sandbox: see Known limits.
+- **Spend, trend and cache, from the logs.** Ideas taken from oh-my-hi, kept to what sadyanx
+  records. Each task shows its cost against its own budget (`budget_used`); a supervised run has
+  no dollar cap, so it shows none, and `run` comes from the last `guard.json`. `cost_flag` marks a
+  capped run past 80% of its budget, or a task at 2x the median of at least 3 finished tasks of
+  its type and mode (and over $1); flagged tasks still in flight appear on Overview. `weekly`
+  compares the last 7 days with the 7 before (tasks finished, first-pass rate, tokens per finished
+  task, agent tokens, fix-round calls, guard denials); a task counts in the week of its last update
+  while done. `by_day` carries cache reads, writes and fresh input, so the hit rate has a daily
+  trend. Left out: a 0-100 health score, the cache-TTL waste estimate, a month-end projection (on
+  Max the dollars are list price) and the startup-context estimate: all built on guesses.
+- **Pages, not one long column.** A sidebar splits the app into Overview (what waits for me,
+  what runs, the period's numbers), Queue, Usage, Guard and Settings, routed on the plain hash
+  (`#queue`; `settings` is reserved by claude.ai, so that page is `#setup`) and remembered per
+  viewer. Badges on the menu carry what needs attention (pending approvals pulse) so another
+  page never hides it. Motion (page entrance, bars and numbers that grow) is off under
+  reduced motion, and a refresh only re-counts numbers that changed.
 - **Nothing of mine in the page.** The HTML is tracked in this public repo and carries no data:
   everything comes from `status` at run time. Outside the Claude desktop app (a browser) it
   shows marked example data; an artifact keeps its owner-only, unshared access, since host

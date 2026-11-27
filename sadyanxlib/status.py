@@ -12,12 +12,21 @@ from __future__ import annotations
 import datetime as dt
 import json
 import re
+import statistics
 from collections import Counter, defaultdict
 
 from . import approvals, paths, persona, runner, tasks, usage
 
 TASK_FIELDS = ("title", "status", "type", "repo", "mode", "effort", "phase", "attempts", "cost_usd",
-               "jira", "pr_url", "doc_url", "report", "reason", "created", "updated")
+               "budget_usd", "jira", "pr_url", "doc_url", "report", "reason", "created", "updated")
+# Spend worth a look: a capped run past this share of its budget, or a task costing this many
+# times the median of finished tasks like it (same type and mode), with enough peers and dollars
+# that the comparison means something.
+NEAR_BUDGET = 0.8
+PEER_FACTOR = 2.0
+PEERS_MIN = 3
+PEER_MIN_USD = 1.0
+WEEK = dt.timedelta(days=7)
 RECENT_DENIALS = 15
 EVENT = re.compile(r"^\[([^\]]+)\] (.*)$")
 # Work the harness does itself, with no model: counted from events.log, never estimated. Steps that
@@ -34,28 +43,35 @@ MODEL_FREE = [
 REASON_CHARS = 240
 
 
-def guard_summary(days: int) -> dict:
-    """What the guard decided in the window: totals, categories of what it stopped, the latest denials."""
+def audit_records(days: int) -> list[tuple[str, dict]]:
+    """(task id, record) for every guard decision in the window, from runs/*/audit.jsonl."""
     since = (dt.datetime.now() - dt.timedelta(days=days)).isoformat()
-    verdicts: Counter = Counter()
-    stopped: dict[str, Counter] = defaultdict(Counter)
-    recent = []
+    out = []
     for f in sorted(paths.runs_dir().glob("*/audit.jsonl")):
         for line in f.read_text(encoding="utf-8").splitlines():
             try:
                 rec = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if rec.get("ts", "") < since:
-                continue
-            verdict = rec.get("verdict") or "?"
-            verdicts[verdict] += 1
-            if verdict != "allow":
-                stopped[verdict][rec.get("category") or "?"] += 1
-                if verdict == "deny":
-                    recent.append({"ts": rec.get("ts", ""), "task": f.parent.name, "tool": rec.get("tool", ""),
-                                   "category": rec.get("category", ""),
-                                   "reason": str(rec.get("reason", ""))[:REASON_CHARS]})
+            if isinstance(rec, dict) and rec.get("ts", "") >= since:
+                out.append((f.parent.name, rec))
+    return out
+
+
+def guard_summary(days: int) -> dict:
+    """What the guard decided in the window: totals, categories of what it stopped, the latest denials."""
+    verdicts: Counter = Counter()
+    stopped: dict[str, Counter] = defaultdict(Counter)
+    recent = []
+    for task_id, rec in audit_records(days):
+        verdict = rec.get("verdict") or "?"
+        verdicts[verdict] += 1
+        if verdict != "allow":
+            stopped[verdict][rec.get("category") or "?"] += 1
+            if verdict == "deny":
+                recent.append({"ts": rec.get("ts", ""), "task": task_id, "tool": rec.get("tool", ""),
+                               "category": rec.get("category", ""),
+                               "reason": str(rec.get("reason", ""))[:REASON_CHARS]})
     recent.sort(key=lambda r: r["ts"], reverse=True)
     return {"verdicts": dict(verdicts), "by_category": {v: dict(c) for v, c in stopped.items()},
             "recent_denials": recent[:RECENT_DENIALS]}
@@ -77,9 +93,87 @@ def model_free(days: int) -> dict:
     return counts
 
 
+def run_kind(task_id: str) -> str:
+    """How the task's last run was set up: supervised, autonomous, or "" before it first ran."""
+    try:
+        ctx = json.loads((paths.runs_dir() / task_id / "guard.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    return "supervised" if isinstance(ctx, dict) and ctx.get("interactive") else "autonomous"
+
+
+def spend(rows: list[dict]) -> None:
+    """Add to each task row its spend against its budget and against finished tasks like it.
+
+    `budget_used` is cost / budget, or None for a supervised run: it has no dollar cap (you
+    watching are the cap). `peer_median_usd` is the median cost of the other finished tasks of the
+    same type and mode, when there are at least PEERS_MIN. `cost_flag` is "budget" (a capped run
+    past NEAR_BUDGET of it), "peers" (PEER_FACTOR times that median and at least PEER_MIN_USD) or ""."""
+    finished: dict[tuple, list[tuple[str, float]]] = defaultdict(list)
+    for r in rows:
+        if r["status"] in ("done", "failed") and r["cost_usd"] > 0:
+            finished[(r["type"], r["mode"])].append((r["id"], r["cost_usd"]))
+    for r in rows:
+        capped = r["run"] != "supervised" and r["budget_usd"] > 0
+        r["budget_used"] = round(r["cost_usd"] / r["budget_usd"], 3) if capped else None
+        others = [c for tid, c in finished[(r["type"], r["mode"])] if tid != r["id"]]
+        median = statistics.median(others) if len(others) >= PEERS_MIN else 0.0
+        r["peer_median_usd"] = round(median, 2) if median else None
+        r["peers"] = len(others) if median else 0
+        if capped and r["cost_usd"] >= NEAR_BUDGET * r["budget_usd"]:
+            r["cost_flag"] = "budget"
+        elif median and r["cost_usd"] >= max(PEER_FACTOR * median, PEER_MIN_USD):
+            r["cost_flag"] = "peers"
+        else:
+            r["cost_flag"] = ""
+
+
+def weekly(recs: list[dict], rows: list[dict], audit: list[tuple[str, dict]], now: dt.datetime) -> dict:
+    """The last 7 days against the 7 before, from the logs: agent tokens, tasks finished, first-pass
+    rate, tokens per finished task, fix-round calls and guard denials. A task counts as finished in
+    the week of its last update while done; its tokens and fix rounds are all of its runs'. A rate
+    with nothing to divide by is None."""
+    start, mid = (now - 2 * WEEK).isoformat(), (now - WEEK).isoformat()
+
+    def week(ts: str) -> str | None:
+        return None if not ts or ts < start else "previous" if ts < mid else "current"
+
+    out = {w: {"tokens": 0, "finished": 0, "first_pass_pct": None, "tokens_per_finished": None,
+               "fix_calls": 0, "denials": 0} for w in ("current", "previous")}
+    task_tokens: Counter = Counter()
+    task_fixed: set[str] = set()
+    for r in recs:
+        task_tokens[r.get("task", "")] += usage.total_tokens(r)
+        if r.get("phase") == "fix":
+            task_fixed.add(r.get("task", ""))
+        w = week(str(r.get("ts", "")))
+        if w:
+            out[w]["tokens"] += usage.total_tokens(r)
+            out[w]["fix_calls"] += r.get("phase") == "fix"
+    first: Counter = Counter()
+    spent: Counter = Counter()
+    for t in rows:
+        w = week(t.get("updated") or "") if t["status"] == "done" else None
+        if w:
+            out[w]["finished"] += 1
+            first[w] += t["id"] not in task_fixed
+            spent[w] += task_tokens[t["id"]]
+    for _, rec in audit:
+        w = week(rec.get("ts", ""))
+        if w and rec.get("verdict") == "deny":
+            out[w]["denials"] += 1
+    for w, m in out.items():
+        if m["finished"]:
+            m["first_pass_pct"] = round(first[w] / m["finished"] * 100)
+            m["tokens_per_finished"] = round(spent[w] / m["finished"])
+    return out
+
+
 def _task_row(t: tasks.Task) -> dict:
     row = {"id": t.id, **{k: t.get(k) for k in TASK_FIELDS}}
     row["cost_usd"] = t.num("cost_usd")
+    row["budget_usd"] = t.num("budget_usd")
+    row["run"] = run_kind(t.id)
     row["pending"] = [{"id": i["id"], "kind": i.get("kind", ""), "category": i.get("category", ""),
                        "created": i.get("created", ""), "text": approvals.describe(i)}
                       for i in approvals.pending(paths.run_dir(t.id))] if t.status == "needs-approval" else []
@@ -103,6 +197,7 @@ def snapshot(days: int) -> dict:
         runner.recover_stale(t)
     task_rows = [_task_row(t) for t in rows]
     task_rows.sort(key=lambda r: r.get("updated") or r.get("created") or "", reverse=True)
+    spend(task_rows)
     kill = paths.kill_file().exists()
     running = [r["id"] for r in task_rows if r["status"] in ("running", "verifying")]
     pending = sum(len(r["pending"]) for r in task_rows)
@@ -121,6 +216,8 @@ def snapshot(days: int) -> dict:
         "guard": guard_summary(days),
         "model_free": model_free(days),
         "usage": usage.summarize(days),
+        # all usage records: a task finished this week may have run long before
+        "weekly": weekly(usage.records(3650), task_rows, audit_records(14), dt.datetime.now()),
     }
 
 
@@ -149,4 +246,10 @@ def render(days: int) -> str:
     for r in s["tasks"]:
         for p in r["pending"]:
             lines.append(f"  ⏸ {r['id']} {p['text']}")
+    for r in s["tasks"]:
+        if r["cost_flag"] == "budget":
+            lines.append(f"  $ {r['id']} spent ${r['cost_usd']:.2f} of its ${r['budget_usd']:.2f} budget")
+        elif r["cost_flag"] == "peers":
+            lines.append(f"  $ {r['id']} spent ${r['cost_usd']:.2f}, {r['cost_usd'] / r['peer_median_usd']:.1f}x "
+                         f"the median of {r['peers']} finished {r['mode']} {r['type']} tasks")
     return "\n".join(lines)

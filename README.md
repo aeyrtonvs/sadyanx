@@ -172,6 +172,7 @@ something), and `/task run <id>`.
 | Pick how hard the work is | add `!deep` (ultra) or `!fast` (balanced) to `jira`, `new` or `run` |
 | See where the tokens go | `/task usage` · `/task usage review` (an agent proposes savings; you approve) |
 | See everything at a glance | `sadyanx status`, or the desktop dashboard (below) |
+| See everything that happened to one task | `sadyanx log 7 --json` (events, agent calls, approvals, guard denials), or Timeline in the dashboard |
 | See the queue | `/task` |
 | Approve / reject what is pending | `/task approve 7` · `/task reject 7 <id> not on a Friday` |
 | Stop one task / everything | `/task kill 7` · `/task kill` |
@@ -181,10 +182,12 @@ The same is available as a CLI (`sadyanx --help`): `add`, `list`, `show`, `run`,
 
 ### Desktop dashboard
 
-`app/dashboard.html` is a Mac app built as a claude.ai artifact: the queue, the approvals waiting
-for you, tokens per day and by mode, phase or repo, the first-pass rate, and what the guard
-stopped. It reaches sadyanx only through `sadyanx mcp`, a local MCP server with four tools:
-`status` and `report` (read-only), `approve` and `reject`. Approve… or Reject… on a pending action, confirmed in its
+`app/dashboard.html` is a Mac app built as a claude.ai artifact, with a page each (keys 1–5) for
+an overview, the queue, usage, the guard and settings: the approvals waiting
+for you, each task's spend against its budget, this week against the last, tokens and the cache
+hit rate per day, tokens by mode, phase or repo, the first-pass rate, and what the guard
+stopped. It reaches sadyanx only through `sadyanx mcp`, a local MCP server with five tools:
+`status`, `report` and `timeline` (read-only), `approve` and `reject`. Approve… or Reject… on a pending action, confirmed in its
 card, decides exactly that action. Not while the kill switch is on. Agents can never use it.
 
 1. Register the server where the Claude desktop app looks for local MCP servers: in the Claude
@@ -196,7 +199,7 @@ card, decides exactly that action. Not while the kill switch is on. Agents can n
    Claude Code sessions use their own list; to call it from there too:
    `claude mcp add --scope user sadyanx -- <python> <repo>/bin/sadyanx mcp`.
 2. Publish `app/dashboard.html` as an artifact with the `desktop` capability and the MCP server
-   `host:sadyanx` (tools `status`, `report`, `approve`, `reject`); asking Claude in the Claude desktop app
+   `host:sadyanx` (tools `status`, `report`, `timeline`, `approve`, `reject`); asking Claude in the Claude desktop app
    to publish it is enough. Keep it private.
 3. In the Claude desktop app, open it, choose **Install as app**, and press **Connect**.
 
