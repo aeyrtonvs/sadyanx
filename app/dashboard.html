@@ -5,56 +5,80 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
-/* Layout: a control-room column. What needs you sits on top, then the numbers, then the evidence (queue, guard). */
+/* Layout: a sidebar of five pages (overview, queue, usage, guard, settings); the active page carries
+   the pink-violet-blue gradient, everything else stays quiet so states (warn, denied) read at a glance. */
 :root {
-  --bg: #f4f6f8;
+  --bg: #f6f4fb;
   --surface: #ffffff;
-  --sunken: #eef1f4;
-  --ink: #141a22;
-  --ink-2: #4d5664;
-  --ink-3: #737c8a;
-  --line: #dfe3e9;
-  --accent: #2a78d6;
-  --accent-soft: #e3eefb;
-  --good: #0a7d0a;
-  --good-mark: #0ca30c;
-  --warn: #8a5a00;
-  --warn-mark: #fab219;
-  --serious: #a8461f;
-  --serious-mark: #ec835a;
-  --critical: #b52f2f;
-  --critical-mark: #d03b3b;
-  --critical-soft: #fbe9e9;
-  --warn-soft: #fdf3dc;
-  --tip-bg: #141a22;
-  --tip-ink: #f4f6f8;
+  --side: #fbfaff;
+  --sunken: #f0ecf8;
+  --hover: #efeaf9;
+  --ink: #1a1530;
+  --ink-2: #514a69;
+  --ink-3: #7b7494;
+  --line: #e6e1f1;
+  --g1: #db2777;
+  --g2: #7c3aed;
+  --g3: #2563eb;
+  --grad: linear-gradient(120deg, var(--g1), var(--g2) 52%, var(--g3));
+  --accent: #6d28d9;
+  --accent-soft: #efe7fd;
+  --good: #15803d;
+  --good-mark: #22c55e;
+  --warn: #92400e;
+  --warn-mark: #f59e0b;
+  --warn-soft: #fef3c7;
+  --warn-ring: rgba(245, 158, 11, .55);
+  --serious: #c2410c;
+  --serious-mark: #fb923c;
+  --critical: #be123c;
+  --critical-mark: #f43f5e;
+  --critical-soft: #ffe4e6;
+  --tip-bg: #1a1530;
+  --tip-ink: #f6f4fb;
+  --glow-1: rgba(124, 58, 237, .10);
+  --glow-2: rgba(219, 39, 119, .07);
+  --shadow: 0 1px 2px rgba(26, 21, 48, .04), 0 10px 28px -16px rgba(26, 21, 48, .18);
+  --scrim: rgba(15, 13, 26, .38);
   --font-display: "Bricolage Grotesque", "IBM Plex Sans", system-ui, sans-serif;
   --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --radius: 10px;
+  --radius: 14px;
+  --gut: clamp(16px, 3vw, 32px);
+  --ease: cubic-bezier(.2, .8, .2, 1);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #111419; --surface: #191d23; --sunken: #20252d; --ink: #eceff3; --ink-2: #b3bac6; --ink-3: #8a93a1;
-    --line: #2b313a; --accent: #3987e5; --accent-soft: #1b2b40; --good: #4cc24c; --good-mark: #0ca30c;
-    --warn: #f3c25a; --warn-mark: #fab219; --serious: #f0a07f; --serious-mark: #ec835a; --critical: #ef7c7c;
-    --critical-mark: #d03b3b; --critical-soft: #3a1d1f; --warn-soft: #362b14; --tip-bg: #eceff3; --tip-ink: #111419;
+    --bg: #0f0d1a; --surface: #1a1628; --side: #130f21; --sunken: #241e36; --hover: #221c33;
+    --ink: #efebfa; --ink-2: #bcb4d4; --ink-3: #8c84a8; --line: #2d2645;
+    --g1: #ec4899; --g2: #8b5cf6; --g3: #3b82f6; --accent: #a78bfa; --accent-soft: #2a2148;
+    --good: #4ade80; --good-mark: #22c55e; --warn: #fbbf24; --warn-mark: #fbbf24; --warn-soft: #2f2410; --warn-ring: rgba(251, 191, 36, .5);
+    --serious: #fdba74; --serious-mark: #fb923c; --critical: #fb7185; --critical-mark: #f43f5e; --critical-soft: #3a1424;
+    --tip-bg: #efebfa; --tip-ink: #0f0d1a; --glow-1: rgba(139, 92, 246, .20); --glow-2: rgba(59, 130, 246, .12);
+    --shadow: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 12px 32px -18px rgba(0, 0, 0, .7); --scrim: rgba(5, 4, 12, .55);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #111419; --surface: #191d23; --sunken: #20252d; --ink: #eceff3; --ink-2: #b3bac6; --ink-3: #8a93a1;
-  --line: #2b313a; --accent: #3987e5; --accent-soft: #1b2b40; --good: #4cc24c; --good-mark: #0ca30c;
-  --warn: #f3c25a; --warn-mark: #fab219; --serious: #f0a07f; --serious-mark: #ec835a; --critical: #ef7c7c;
-  --critical-mark: #d03b3b; --critical-soft: #3a1d1f; --warn-soft: #362b14; --tip-bg: #eceff3; --tip-ink: #111419;
+  --bg: #0f0d1a; --surface: #1a1628; --side: #130f21; --sunken: #241e36; --hover: #221c33;
+  --ink: #efebfa; --ink-2: #bcb4d4; --ink-3: #8c84a8; --line: #2d2645;
+  --g1: #ec4899; --g2: #8b5cf6; --g3: #3b82f6; --accent: #a78bfa; --accent-soft: #2a2148;
+  --good: #4ade80; --good-mark: #22c55e; --warn: #fbbf24; --warn-mark: #fbbf24; --warn-soft: #2f2410; --warn-ring: rgba(251, 191, 36, .5);
+  --serious: #fdba74; --serious-mark: #fb923c; --critical: #fb7185; --critical-mark: #f43f5e; --critical-soft: #3a1424;
+  --tip-bg: #efebfa; --tip-ink: #0f0d1a; --glow-1: rgba(139, 92, 246, .20); --glow-2: rgba(59, 130, 246, .12);
+  --shadow: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 12px 32px -18px rgba(0, 0, 0, .7); --scrim: rgba(5, 4, 12, .55);
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.45; }
+body {
+  background: radial-gradient(900px 520px at 100% -8%, var(--glow-1), transparent 62%),
+              radial-gradient(760px 520px at 0% 108%, var(--glow-2), transparent 60%), var(--bg);
+  background-attachment: fixed;
+  color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.45;
+}
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
-.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 48px; display: grid; gap: 20px; }
 h1, h2 { font-family: var(--font-display); font-weight: 600; margin: 0; text-wrap: balance; }
 h2 { font-size: 15px; letter-spacing: 0.01em; }
 .num, code, .mono { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
@@ -62,18 +86,79 @@ button, select, input { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 a { color: var(--accent); }
+.s1 { stop-color: var(--g1); } .s2 { stop-color: var(--g2); } .s3 { stop-color: var(--g3); }
 
-/* top bar */
-.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
-.bar-in { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; min-height: 52px; }
-.brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
-.brand h1 { font-size: 20px; }
-.brand .sub { color: var(--ink-3); font-size: 12px; }
+/* shell: sidebar + main */
+.app { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100dvh; }
+.side {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 6;
+  height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: 22px;
+  padding-block: 18px 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: 14px;
+  background: var(--side); border-right: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: 10px; padding: 0 6px; }
+.brand .mark { width: 30px; height: 30px; flex: none; display: block; }
+.brand .word { font-family: var(--font-display); font-size: 21px; font-weight: 600; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.nav-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; position: relative; flex: 1; }
+.nav-list li.end { margin-top: auto; }
+.nav-ind { position: absolute; left: 0; top: 0; width: 0; height: 0; border-radius: 10px; background: var(--grad); box-shadow: 0 8px 20px -8px var(--g2); pointer-events: none; }
+.nav-link { position: relative; z-index: 1; display: flex; align-items: center; gap: 11px; padding: 9px 10px; border-radius: 10px; color: var(--ink-2); text-decoration: none; font-weight: 500; }
+.nav-link svg { width: 19px; height: 19px; flex: none; }
+.nav-link:hover { color: var(--ink); background: var(--hover); }
+.nav-link[aria-current="page"], .nav-link[aria-current="page"]:hover { color: #fff; background: transparent; }
+.count { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--sunken); color: var(--ink-2); font: 500 11px/20px var(--font-data); text-align: center; }
+.count.warn { background: var(--warn-mark); color: #241700; }
+.count.bad { background: var(--critical-soft); color: var(--critical); }
+.nav-link[aria-current="page"] .count { background: rgba(255, 255, 255, .24); color: #fff; }
+.side-foot { padding: 0 8px; font-size: 11.5px; color: var(--ink-3); }
+.side-foot kbd { font-family: var(--font-data); font-size: 10.5px; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+
+/* narrow window: icons only */
+@media (min-width: 600px) and (max-width: 999px) {
+  .app { grid-template-columns: 72px minmax(0, 1fr); }
+  .side { padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: 12px; }
+  .brand { padding: 0; justify-content: center; }
+  .brand .word, .side-foot { display: none; }
+  .nav-link { justify-content: center; padding: 11px; }
+  .nav-link .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .count { position: absolute; top: 2px; right: 1px; min-width: 17px; height: 17px; padding: 0 4px; font-size: 10px; line-height: 17px; }
+}
+/* phone: a bottom bar */
+@media (max-width: 599px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .side {
+    position: fixed; top: auto; left: 0; right: 0; bottom: 0; height: auto; flex-direction: row;
+    padding-block: 6px calc(6px + env(safe-area-inset-bottom, 0px));
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    border-right: 0; border-top: 1px solid var(--line);
+    background: color-mix(in srgb, var(--side) 88%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  }
+  .brand, .side-foot { display: none; }
+  .nav-list { flex-direction: row; gap: 4px; }
+  .nav-list li { flex: 1 1 0; min-width: 0; }
+  .nav-list li.end { margin-top: 0; }
+  .nav-link { flex-direction: column; justify-content: center; gap: 3px; padding: 7px 2px; font-size: 11px; }
+  .count { position: absolute; top: 2px; left: calc(50% + 4px); min-width: 17px; height: 17px; padding: 0 4px; font-size: 10px; line-height: 17px; }
+  .main { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+}
+
+.main { min-width: 0; display: flex; flex-direction: column; }
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+.top-in, .wrap { max-width: 1140px; width: 100%; margin: 0 auto; padding-left: max(var(--gut), env(safe-area-inset-left, 0px)); padding-right: max(var(--gut), env(safe-area-inset-right, 0px)); }
+.top-in { padding-block: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; min-height: 64px; }
+.page-head { margin-right: auto; display: grid; gap: 1px; min-width: 0; }
+.page-head h1 { font-size: 22px; line-height: 1.2; }
+.page-head p { margin: 0; color: var(--ink-3); font-size: 12.5px; }
 .ctrl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 5px 11px; font-size: 13px; }
+.wrap { padding-block: 22px 48px; display: grid; gap: 20px; align-content: start; }
+.page { display: grid; gap: 20px; min-width: 0; }
+
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 9px; padding: 5px 12px; font-size: 13px; }
 .btn:hover { border-color: var(--ink-3); }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn[disabled] { opacity: .55; cursor: default; }
+.btn.primary { background: var(--grad); background-size: 180% 100%; background-position: 0 0; border-color: transparent; color: #fff; font-weight: 500; }
+.btn.primary:hover { background-position: 100% 0; border-color: transparent; }
+.btn[disabled] { opacity: .5; cursor: default; }
 select.btn { padding-right: 6px; }
 .stamp { color: var(--ink-3); font-size: 12px; }
 
@@ -84,13 +169,13 @@ select.btn { padding-right: 6px; }
 .pill.warn { color: var(--warn); background: var(--warn-soft); } .pill.warn::before { background: var(--warn-mark); }
 .pill.serious { color: var(--serious); } .pill.serious::before { background: var(--serious-mark); }
 .pill.critical { color: var(--critical); background: var(--critical-soft); } .pill.critical::before { background: var(--critical-mark); }
-.pill.live { color: var(--accent); background: var(--accent-soft); } .pill.live::before { background: var(--accent); }
+.pill.live { color: var(--accent); background: var(--accent-soft); } .pill.live::before { background: var(--grad); }
 
 /* notices */
 .notice { border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
 .notice p { margin: 0; flex: 1 1 280px; min-width: 0; color: var(--ink-2); }
 .notice strong { color: var(--ink); }
-.notice.example { border-style: dashed; }
+.notice.example { border-style: dashed; background: color-mix(in srgb, var(--surface) 70%, transparent); }
 .notice.error { border-color: var(--critical-mark); background: var(--critical-soft); }
 .notice.error pre { flex-basis: 100%; margin: 0; white-space: pre-wrap; word-break: break-word; font-size: 12px; color: var(--ink-2); }
 .notice.kill { border-color: var(--critical-mark); background: var(--critical-soft); }
@@ -99,10 +184,10 @@ select.btn { padding-right: 6px; }
 .attn { display: grid; gap: 10px; }
 .attn-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .attn-head .quiet { color: var(--ink-3); font-size: 13px; }
-.ask { border: 1px solid var(--line); border-left: 3px solid var(--warn-mark); background: var(--surface); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 8px; min-width: 0; }
+.ask { border: 1px solid var(--line); border-left: 3px solid var(--warn-mark); background: var(--surface); box-shadow: var(--shadow); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 8px; min-width: 0; }
 .ask-top { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
 .ask-top .title { font-weight: 600; min-width: 0; }
-.ask pre { margin: 0; background: var(--sunken); border-radius: 6px; padding: 8px 10px; font-family: var(--font-data); font-size: 12px; white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto; }
+.ask pre { margin: 0; background: var(--sunken); border-radius: 8px; padding: 8px 10px; font-family: var(--font-data); font-size: 12px; white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto; }
 .ask .acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .ask .acts .grow { flex: 1 1 200px; min-width: 0; }
 .ask .acts input { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; background: var(--bg); font-size: 13px; }
@@ -113,32 +198,36 @@ select.btn { padding-right: 6px; }
 .btn.danger { background: var(--critical-mark); border-color: var(--critical-mark); color: #fff; }
 .btn.quiet { border-color: transparent; background: transparent; color: var(--ink-2); }
 .running { display: flex; flex-wrap: wrap; gap: 8px; }
-.voice { margin: 0; font-family: var(--font-display); font-size: 19px; line-height: 1.3; text-wrap: balance; color: var(--ink); }
-.voice .who { color: var(--accent); }
+.voice { margin: 0; font-family: var(--font-display); font-size: 21px; line-height: 1.3; text-wrap: balance; color: var(--ink); }
+.voice .who { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
 
 /* kpis */
-.kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
-.kpi { background: var(--surface); padding: 14px 14px 12px; display: grid; gap: 2px; align-content: start; min-width: 0; }
+.sec-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: -8px; }
+.sec-head .quiet { color: var(--ink-3); font-size: 13px; }
+.kpis { position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+.kpis::before { content: ""; position: absolute; inset: 0 0 auto; height: 2px; background: var(--grad); z-index: 1; }
+.kpi { background: var(--surface); padding: 16px 14px 13px; display: grid; gap: 2px; align-content: start; min-width: 0; }
+.kpi:hover { background: color-mix(in srgb, var(--surface) 92%, var(--g2)); }
 .kpi .label { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); }
-.kpi .value { font-family: var(--font-data); font-size: 24px; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.kpi .value { font-family: var(--font-data); font-size: 25px; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1.2; }
 .kpi .note { font-size: 12px; color: var(--ink-2); }
-@media (max-width: 980px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1180px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* model-free work */
-.mf { display: flex; flex-wrap: wrap; gap: 10px 28px; }
+.mf { display: flex; flex-wrap: wrap; gap: 12px 30px; }
 .mf div { display: grid; gap: 0; min-width: 0; }
-.mf .n { font-family: var(--font-data); font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.mf .n { font-family: var(--font-data); font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .mf .l { font-size: 12px; color: var(--ink-2); }
 
 /* panels */
 .grid2 { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 20px; }
-@media (max-width: 900px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+@media (max-width: 1100px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 15px 16px 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
 .panel-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .panel-head h2 { margin-right: auto; }
 .panel-head .hint { color: var(--ink-3); font-size: 12px; flex-basis: 100%; }
-.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
 .seg button { border: 0; background: transparent; padding: 4px 10px; font-size: 12px; color: var(--ink-2); }
 .seg button + button { border-left: 1px solid var(--line); }
 .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
@@ -148,8 +237,8 @@ select.btn { padding-right: 6px; }
 .chart svg { display: block; width: 100%; height: 230px; overflow: visible; }
 .chart .grid line { stroke: var(--line); stroke-width: 1; }
 .chart .axis text { fill: var(--ink-3); font-family: var(--font-data); font-size: 10.5px; }
-.chart .bar-mark { fill: var(--accent); }
-.chart .bar-mark.dim { opacity: .35; }
+.chart .bar-mark { fill: url(#bar-grad); }
+.chart .bar-mark.dim { opacity: .3; }
 .chart .hit { fill: transparent; }
 .tip { position: absolute; pointer-events: none; background: var(--tip-bg); color: var(--tip-ink); border-radius: 8px; padding: 8px 10px; font-size: 12px; line-height: 1.5; min-width: 150px; z-index: 3; box-shadow: 0 6px 20px rgba(0,0,0,.18); }
 .tip b { font-family: var(--font-data); font-weight: 500; }
@@ -161,8 +250,8 @@ select.btn { padding-right: 6px; }
 .rows { display: grid; gap: 10px; }
 .brow { display: grid; grid-template-columns: minmax(70px, 120px) minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; }
 .brow .k { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.brow .track { height: 10px; background: var(--sunken); border-radius: 0 4px 4px 0; overflow: hidden; }
-.brow .fill { height: 100%; background: var(--accent); border-radius: 0 4px 4px 0; }
+.brow .track { height: 10px; background: var(--sunken); border-radius: 0 5px 5px 0; overflow: hidden; }
+.brow .fill { height: 100%; background: var(--grad); border-radius: 0 5px 5px 0; transform-origin: left center; }
 .brow .v { font-family: var(--font-data); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .brow .meta { grid-column: 2 / 4; font-size: 12px; color: var(--ink-3); margin-top: -4px; }
 
@@ -170,7 +259,8 @@ select.btn { padding-right: 6px; }
 .table-wrap { overflow-x: auto; margin: 0 -16px; padding: 0 16px; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); font-weight: 500; padding: 6px 10px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
-td { padding: 9px 10px 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+td { padding: 10px 10px 10px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+tbody tr:hover td { background: color-mix(in srgb, var(--surface) 94%, var(--g2)); }
 tr:last-child td { border-bottom: 0; }
 td.t { min-width: 220px; }
 td.t .ttl { font-weight: 500; }
@@ -178,13 +268,54 @@ td.t .why { color: var(--ink-3); font-size: 12px; margin-top: 2px; }
 td.r, th.r { text-align: right; }
 td .links { display: flex; gap: 8px; flex-wrap: wrap; }
 .linkbtn { border: 0; background: none; padding: 0; color: var(--accent); text-decoration: underline; font-size: 13px; }
+.linkbtn.mono { font-family: var(--font-data); font-size: inherit; }
+
+/* spend: cost against the budget, and against finished tasks like it */
+td.spend { min-width: 128px; padding-right: 16px; }
+.spend .sub { display: block; font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+.meter { height: 5px; width: 76px; margin: 5px 0 2px auto; background: var(--sunken); border-radius: 3px; overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--grad); border-radius: 3px; transform-origin: left center; }
+.meter.hot i { background: var(--warn-mark); }
+.flag { display: inline-block; margin-top: 4px; font-size: 11px; font-weight: 500; border-radius: 5px; padding: 0 6px; white-space: nowrap; }
+.flag.budget { color: var(--warn); background: var(--warn-soft); }
+.flag.peers { color: var(--serious); background: color-mix(in srgb, var(--serious-mark) 16%, transparent); }
+.watch { display: grid; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); padding: 10px 14px; box-shadow: var(--shadow); }
+.watch h2 { font-size: 13px; }
+.watch-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 13px; min-width: 0; }
+.watch-row .title { min-width: 0; flex: 1 1 200px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.watch-row .meter { margin: 0; }
+
+/* this week against the week before */
+.weeks { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+.wk { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; display: grid; gap: 1px; min-width: 0; }
+.wk .label { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); }
+.wk .value { font-family: var(--font-data); font-size: 19px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.wk .delta { font-size: 12px; font-weight: 500; color: var(--ink-3); white-space: nowrap; }
+.wk .delta.better { color: var(--good); }
+.wk .delta.worse { color: var(--critical); }
+.wk .was { font-size: 11.5px; color: var(--ink-3); }
+@media (max-width: 1180px) { .weeks { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .weeks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* cache line */
+.chart .line { fill: none; stroke: url(#cache-grad); stroke-width: 2.25; stroke-linejoin: round; stroke-linecap: round; }
+.chart .area { fill: url(#cache-fill); }
+.chart .area-top { stop-color: var(--g2); stop-opacity: .28; }
+.chart .area-bottom { stop-color: var(--g2); stop-opacity: 0; }
+.chart .avg { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 4 4; }
+.chart .avg-label { fill: var(--ink-3); font-family: var(--font-data); font-size: 10.5px; }
+.chart .dot { fill: var(--surface); stroke: var(--g1); stroke-width: 2; }
+.chart .dot.end { fill: var(--g1); }
+.chart .cursor { stroke: var(--ink-3); stroke-width: 1; }
+#cache-chart { min-height: 200px; }
+#cache-chart svg { height: 200px; }
 
 /* guard */
-.stack { display: flex; gap: 2px; height: 14px; border-radius: 4px; overflow: hidden; }
+.stack { display: flex; gap: 2px; height: 14px; border-radius: 5px; overflow: hidden; }
 .stack div { min-width: 2px; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--ink-2); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
-.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 .denials { display: grid; gap: 0; }
 .den { padding: 9px 0; border-bottom: 1px solid var(--line); display: grid; gap: 3px; min-width: 0; }
 .den:last-child { border-bottom: 0; }
@@ -193,10 +324,43 @@ td .links { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip { font-size: 11px; border: 1px solid var(--line); border-radius: 5px; padding: 0 6px; color: var(--ink-2); font-family: var(--font-data); }
 
 /* report reader */
-.reader { position: fixed; inset: 0; z-index: 30; background: rgba(10, 14, 20, .38); display: flex; justify-content: flex-end; }
+.reader { position: fixed; inset: 0; z-index: 30; background: var(--scrim); display: flex; justify-content: flex-end; }
 .reader-panel { background: var(--surface); width: min(780px, 100%); height: 100%; overflow: auto; border-left: 1px solid var(--line); padding-block: calc(14px + env(safe-area-inset-top, 0px)) calc(32px + env(safe-area-inset-bottom, 0px)); padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); display: grid; gap: 12px; align-content: start; }
 .reader-head { display: flex; align-items: center; gap: 10px; position: sticky; top: calc(-14px - env(safe-area-inset-top, 0px)); background: var(--surface); padding-block: 6px; border-bottom: 1px solid var(--line); }
-.reader-head h2 { margin-right: auto; }
+.reader-head { flex-wrap: wrap; }
+.reader-head h2 { margin-right: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 200px; }
+.reader-head .seg button[disabled] { opacity: .45; cursor: default; }
+
+/* timeline: one rail, a mark per event colored by what it is about; tone wins over kind */
+.timeline { display: grid; gap: 10px; min-width: 0; }
+.tl-sum { display: flex; flex-wrap: wrap; gap: 8px 24px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.tl-sum div { display: grid; min-width: 0; }
+.tl-sum .n { font-family: var(--font-data); font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.tl-sum .l { font-size: 12px; color: var(--ink-3); }
+.tl-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.tl-day { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); margin: 8px 0 2px; }
+.tl { list-style: none; margin: 0; padding: 0; position: relative; }
+.tl::before { content: ""; position: absolute; left: 77px; top: 10px; bottom: 10px; width: 2px; border-radius: 1px; background: color-mix(in srgb, var(--ink-3) 30%, transparent); }
+.ev { display: grid; grid-template-columns: 62px 12px minmax(0, 1fr); gap: 0 10px; padding: 5px 0; }
+.ev .t { font-family: var(--font-data); font-size: 11.5px; color: var(--ink-3); padding-top: 2px; text-align: right; }
+.ev .mark { position: relative; z-index: 1; width: 12px; height: 12px; margin-top: 4px; border-radius: 50%; background: var(--ink-3); box-shadow: 0 0 0 3px var(--surface); }
+.ev .body { min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
+.ev .kind { font-family: var(--font-data); font-size: 10.5px; font-weight: 500; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); margin-right: 7px; }
+.ev .nums { display: block; font-family: var(--font-data); font-size: 11.5px; color: var(--ink-2); margin-top: 1px; }
+.ev details { margin-top: 3px; }
+.ev summary { cursor: pointer; font-size: 12px; color: var(--accent); width: fit-content; }
+.ev pre { margin: 4px 0 0; background: var(--sunken); border-radius: 8px; padding: 7px 9px; font-family: var(--font-data); font-size: 11.5px; white-space: pre-wrap; word-break: break-word; max-height: 240px; overflow: auto; }
+.ev.k-agent .mark, .ev.k-call .mark { background: var(--g2); }
+.ev.k-check .mark, .ev.k-ci .mark { background: var(--g3); }
+.ev.k-ship .mark, .ev.k-notify .mark { background: var(--g1); }
+.ev.k-start .mark, .ev.k-final .mark { background: var(--grad); width: 14px; height: 14px; margin-left: -1px; margin-top: 3px; }
+.ev.k-gate .mark, .ev.k-note .mark { background: var(--surface); border: 2px solid var(--ink-3); }
+.ev.k-start .txt, .ev.k-final .txt { font-weight: 600; }
+.ev.good .mark { background: var(--good-mark); border: 0; }
+.ev.warn .mark { background: var(--warn-mark); border: 0; }
+.ev.bad .mark { background: var(--critical-mark); border: 0; }
+.ev.bad .txt { color: var(--critical); }
+.flag.example { color: var(--ink-2); background: var(--sunken); }
 .md { line-height: 1.55; min-width: 0; overflow-wrap: anywhere; }
 .md h1 { font-family: var(--font-display); font-size: 20px; margin: 4px 0 10px; text-wrap: balance; }
 .md h2 { font-size: 16px; margin: 22px 0 8px; }
@@ -212,118 +376,214 @@ td .links { display: flex; gap: 8px; flex-wrap: wrap; }
 .md th { text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--ink-2); }
 
 /* settings */
-.settings { display: grid; gap: 12px; }
+.settings { gap: 18px; }
 .field { display: grid; gap: 6px; }
 .field label { font-weight: 500; }
 .field .help { color: var(--ink-3); font-size: 12px; }
 .field .row { display: flex; gap: 8px; flex-wrap: wrap; }
 .field input { flex: 1 1 260px; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; background: var(--bg); font-family: var(--font-data); font-size: 13px; }
-.toast { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); background: var(--tip-bg); color: var(--tip-ink); padding: 8px 14px; border-radius: 8px; font-size: 13px; z-index: 20; }
-@media (prefers-reduced-motion: no-preference) { .btn, .seg button { transition: border-color .15s, background-color .15s; } }
+.field kbd { font-family: var(--font-data); font-size: 11.5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; background: var(--sunken); }
+.toast { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); background: var(--tip-bg); color: var(--tip-ink); padding: 8px 14px; border-radius: 9px; font-size: 13px; z-index: 40; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+@media (max-width: 599px) { .toast { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); } }
+
+/* motion: page entrance, growing bars, counting numbers (in the script), a sliding menu marker, pulses */
+@media (prefers-reduced-motion: no-preference) {
+  .btn, .seg button, .nav-link { transition: border-color .15s, background-color .15s, color .2s, background-position .45s var(--ease); }
+  .kpi, td { transition: background-color .2s; }
+  .chart .bar-mark { transition: opacity .2s; }
+  .nav-ind.ready { transition: transform .42s cubic-bezier(.3, 1.25, .4, 1), width .3s var(--ease), height .3s var(--ease); }
+  .page.enter > * { animation: rise .5s var(--ease) backwards; }
+  .page.enter > :nth-child(2) { animation-delay: 70ms; }
+  .page.enter > :nth-child(3) { animation-delay: 140ms; }
+  .page.enter > :nth-child(4) { animation-delay: 210ms; }
+  .page.enter .kpi, .page.enter .mf > div, .page.enter .den, .page.enter .ask { animation: rise .5s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 55ms + 140ms); }
+  .page.enter tbody tr { animation: rise .4s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 28ms + 80ms); }
+  .page.enter .fill { animation: grow-x .8s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 60ms + 180ms); }
+  .page.enter .stack { animation: wipe .9s var(--ease) .12s backwards; }
+  .page.enter .meter i { animation: grow-x .8s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 28ms + 200ms); }
+  .page.enter .wk { animation: rise .5s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 55ms + 260ms); }
+  .chart.grow .line { stroke-dasharray: var(--len); animation: draw 1.1s var(--ease) backwards; }
+  .chart.grow .area { animation: fade .9s ease-out .35s backwards; }
+  .chart.grow .bar-mark { animation: grow-y .7s var(--ease) backwards; animation-delay: var(--d, 0ms); transform-box: fill-box; transform-origin: 50% 100%; }
+  .pill.live::before { animation: beat 1.6s ease-in-out infinite; }
+  .count.warn { animation: ring 2.2s ease-out infinite; }
+  .reader:not([hidden]) { animation: fade .2s ease-out; }
+  .reader:not([hidden]) .reader-panel { animation: slide-in .34s var(--ease); }
+  .toast:not([hidden]) { animation: toast-in .25s var(--ease); }
+  .timeline.enter .ev { animation: rise .4s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 22ms); }
+  .timeline.enter .tl::before { animation: grow-y .8s var(--ease) backwards; transform-origin: top; }
+}
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+@keyframes draw { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
+@keyframes grow-x { from { transform: scaleX(0); } }
+@keyframes grow-y { from { transform: scaleY(0); } }
+@keyframes wipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes beat { 50% { transform: scale(1.45); opacity: .55; } }
+@keyframes ring { 0% { box-shadow: 0 0 0 0 var(--warn-ring); } 70%, 100% { box-shadow: 0 0 0 7px transparent; } }
+@keyframes fade { from { opacity: 0; } }
+@keyframes slide-in { from { transform: translateX(48px); opacity: 0; } }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } }
 </style>
 
-<header class="bar">
-  <div class="bar-in">
-    <div class="brand"><h1>sadyanx</h1><span class="sub" id="source-label">example data</span></div>
-    <div class="ctrl">
-      <span class="pill" id="kill-pill">kill switch off</span>
-      <select class="btn" id="days" aria-label="Period">
-        <option value="7">Last 7 days</option>
-        <option value="30" selected>Last 30 days</option>
-        <option value="90">Last 90 days</option>
-      </select>
-      <button class="btn" id="refresh" type="button">Refresh</button>
-      <button class="btn" id="settings-btn" type="button" aria-expanded="false">Settings</button>
-      <span class="stamp" id="stamp"></span>
+<div class="app">
+  <nav class="side" aria-label="Pages">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="mark-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="s1"></stop><stop offset=".5" class="s2"></stop><stop offset="1" class="s3"></stop></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(#mark-g)"></rect><rect x="7" y="8" width="18" height="3.5" rx="1.75" fill="#fff"></rect><rect x="7" y="14.25" width="13" height="3.5" rx="1.75" fill="#fff" fill-opacity=".8"></rect><rect x="7" y="20.5" width="9" height="3.5" rx="1.75" fill="#fff" fill-opacity=".6"></rect></svg>
+      <span class="word">sadyanx</span>
     </div>
-  </div>
-</header>
+    <ul class="nav-list">
+      <li class="nav-ind" id="nav-ind" role="presentation" aria-hidden="true"></li>
+      <li><a class="nav-link" href="#overview" data-page="overview" title="Overview (1)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="2"></rect><rect x="13.5" y="3.5" width="7" height="7" rx="2"></rect><rect x="3.5" y="13.5" width="7" height="7" rx="2"></rect><rect x="13.5" y="13.5" width="7" height="7" rx="2"></rect></svg>
+        <span class="label">Overview</span><span class="count" id="count-overview" hidden></span></a></li>
+      <li><a class="nav-link" href="#queue" data-page="queue" title="Queue (2)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"></path><circle cx="4.5" cy="6" r="1.2" fill="currentColor"></circle><circle cx="4.5" cy="12" r="1.2" fill="currentColor"></circle><circle cx="4.5" cy="18" r="1.2" fill="currentColor"></circle></svg>
+        <span class="label">Queue</span><span class="count" id="count-queue" hidden></span></a></li>
+      <li><a class="nav-link" href="#usage" data-page="usage" title="Usage (3)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 20.5h17M6.5 17v-5M11.5 17V5M16.5 17V9"></path></svg>
+        <span class="label">Usage</span></a></li>
+      <li><a class="nav-link" href="#guard" data-page="guard" title="Guard (4)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7.5 3v5.5c0 4.4-3.1 8-7.5 9.5-4.4-1.5-7.5-5.1-7.5-9.5V6L12 3z"></path><path d="M9 12l2.2 2.2L15.5 10"></path></svg>
+        <span class="label">Guard</span><span class="count" id="count-guard" hidden></span></a></li>
+      <li class="end"><a class="nav-link" href="#setup" data-page="setup" title="Settings (5)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M18 7h2M4 17h3M12 17h8"></path><circle cx="15.5" cy="7" r="2.3"></circle><circle cx="9.5" cy="17" r="2.3"></circle></svg>
+        <span class="label">Settings</span></a></li>
+    </ul>
+    <p class="side-foot">Press <kbd>1</kbd>–<kbd>5</kbd> to switch pages.</p>
+  </nav>
 
-<main class="wrap">
-  <div id="gate"></div>
-
-  <section class="panel settings" id="settings" hidden>
-    <div class="panel-head"><h2>Settings</h2></div>
-    <div class="field">
-      <label>Connection</label>
-      <span class="help">This app talks to sadyanx through its local MCP server, which offers four tools and nothing else: <code>status</code>, <code>report</code>, <code>approve</code> and <code>reject</code>. Register it once in the Claude app: <strong>Settings → Developer → Edit Config</strong>, add under <code>"mcpServers"</code> the entry this command prints, then quit and reopen the Claude app:</span>
-      <div class="row"><input id="setup-cmd" type="text" readonly value="~/.local/bin/sadyanx mcp --config" aria-label="Setup command"><button class="btn" type="button" data-copy-from="setup-cmd">Copy</button></div>
-    </div>
-    <div class="field">
-      <label>Menu bar</label>
-      <div class="row">
-        <button class="btn" id="tray-btn" type="button">Show approvals in the menu bar</button>
-        <button class="btn" id="perm-btn" type="button">Permissions</button>
-      </div>
-      <span class="help">The menu bar item shows how many actions wait for your approval, and lives while this app is open.</span>
-    </div>
-  </section>
-
-  <section class="attn" id="attention" aria-live="polite"></section>
-
-  <section class="kpis" id="kpis" aria-label="Summary"></section>
-
-  <section class="panel">
-    <div class="panel-head"><h2>Done without a model</h2><span class="hint" id="mf-hint"></span></div>
-    <div class="mf" id="model-free"></div>
-  </section>
-
-  <div class="grid2">
-    <section class="panel">
-      <div class="panel-head">
-        <h2 id="chart-title">Tokens per day</h2>
-        <div class="seg" role="group" aria-label="Measure">
-          <button type="button" data-metric="tokens" aria-pressed="true">Tokens</button>
-          <button type="button" data-metric="cost_usd" aria-pressed="false">Est. $</button>
-          <button type="button" data-metric="seconds" aria-pressed="false">Agent time</button>
+  <div class="main">
+    <header class="top">
+      <div class="top-in">
+        <div class="page-head"><h1 id="page-title">Overview</h1><p id="page-sub"></p></div>
+        <div class="ctrl">
+          <span class="stamp" id="source-label">example data</span>
+          <span class="pill" id="kill-pill">kill switch off</span>
+          <select class="btn" id="days" aria-label="Period">
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+          </select>
+          <button class="btn" id="refresh" type="button">Refresh</button>
+          <span class="stamp" id="stamp"></span>
         </div>
-        <span class="hint">Every agent call: work, fix rounds, reviews and PR follow-ups.</span>
       </div>
-      <div class="chart" id="chart"></div>
-    </section>
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Where the tokens go</h2>
-        <select class="btn" id="group-by" aria-label="Group by">
-          <option value="mode">By mode</option>
-          <option value="model">By model</option>
-          <option value="effort">By effort</option>
-          <option value="model_effort">By model · effort</option>
-          <option value="phase">By phase</option>
-          <option value="repo">By repo</option>
-        </select>
-      </div>
-      <div class="rows" id="breakdown"></div>
-    </section>
-  </div>
+    </header>
 
-  <section class="panel">
-    <div class="panel-head">
-      <h2>Queue</h2>
-      <div class="seg" role="group" aria-label="Filter">
-        <button type="button" data-filter="all" aria-pressed="true">All</button>
-        <button type="button" data-filter="active" aria-pressed="false">Not done</button>
-      </div>
-    </div>
-    <div class="table-wrap"><table id="queue"></table></div>
-  </section>
+    <main class="wrap">
+      <div id="gate"></div>
 
-  <div class="grid2">
-    <section class="panel">
-      <div class="panel-head"><h2>Guard</h2><span class="hint" id="guard-hint"></span></div>
-      <div id="guard-stack"></div>
-      <div id="guard-cats" class="rows"></div>
-    </section>
-    <section class="panel">
-      <div class="panel-head"><h2>Latest denials</h2></div>
-      <div class="denials" id="denials"></div>
-    </section>
+      <div class="page" data-page="overview" hidden>
+        <section class="attn" id="attention" aria-live="polite"></section>
+        <div class="sec-head"><h2 id="kpi-title">Last 30 days</h2><span class="quiet">every agent call, the first-pass rate and what the guard stopped</span></div>
+        <section class="kpis" id="kpis" aria-label="Summary"></section>
+        <div class="sec-head"><h2>This week</h2><span class="quiet">the last 7 days against the 7 before, whatever the period above</span></div>
+        <section class="weeks" id="weekly" aria-label="This week against the week before"></section>
+      </div>
+
+      <div class="page" data-page="queue" hidden>
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Tasks</h2>
+            <div class="seg" role="group" aria-label="Filter">
+              <button type="button" data-filter="all" aria-pressed="true">All</button>
+              <button type="button" data-filter="active" aria-pressed="false">Not done</button>
+            </div>
+          </div>
+          <div class="table-wrap"><table id="queue"></table></div>
+        </section>
+      </div>
+
+      <div class="page" data-page="usage" hidden>
+        <div class="grid2">
+          <section class="panel">
+            <div class="panel-head">
+              <h2 id="chart-title">Tokens per day</h2>
+              <div class="seg" role="group" aria-label="Measure">
+                <button type="button" data-metric="tokens" aria-pressed="true">Tokens</button>
+                <button type="button" data-metric="cost_usd" aria-pressed="false">Est. $</button>
+                <button type="button" data-metric="seconds" aria-pressed="false">Agent time</button>
+              </div>
+              <span class="hint">Every agent call: work, fix rounds, reviews and PR follow-ups.</span>
+            </div>
+            <div class="chart" id="chart"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Where the tokens go</h2>
+              <select class="btn" id="group-by" aria-label="Group by">
+                <option value="mode">By mode</option>
+                <option value="model">By model</option>
+                <option value="effort">By effort</option>
+                <option value="model_effort">By model · effort</option>
+                <option value="phase">By phase</option>
+                <option value="repo">By repo</option>
+              </select>
+            </div>
+            <div class="rows" id="breakdown"></div>
+          </section>
+        </div>
+        <div class="grid2">
+          <section class="panel">
+            <div class="panel-head"><h2>Cache hit rate per day</h2><span class="hint">Share of the input tokens read from the prompt cache. A drop means prompts changed, or sessions outlived the cache.</span></div>
+            <div class="chart" id="cache-chart"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><h2>Done without a model</h2><span class="hint" id="mf-hint"></span></div>
+            <div class="mf" id="model-free"></div>
+          </section>
+        </div>
+      </div>
+
+      <div class="page" data-page="guard" hidden>
+        <div class="grid2">
+          <section class="panel">
+            <div class="panel-head"><h2>Verdicts</h2><span class="hint" id="guard-hint"></span></div>
+            <div id="guard-stack"></div>
+            <div id="guard-cats" class="rows"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><h2>Latest denials</h2></div>
+            <div class="denials" id="denials"></div>
+          </section>
+        </div>
+      </div>
+
+      <div class="page" data-page="setup" hidden>
+        <section class="panel settings" id="settings">
+          <div class="field">
+            <label>Connection</label>
+            <span class="help">This app talks to sadyanx through its local MCP server, which offers five tools and nothing else: <code>status</code>, <code>report</code>, <code>timeline</code>, <code>approve</code> and <code>reject</code>. Register it once in the Claude app: <strong>Settings → Developer → Edit Config</strong>, add under <code>"mcpServers"</code> the entry this command prints, then quit and reopen the Claude app:</span>
+            <div class="row"><input id="setup-cmd" type="text" readonly value="~/.local/bin/sadyanx mcp --config" aria-label="Setup command"><button class="btn" type="button" data-copy-from="setup-cmd">Copy</button></div>
+          </div>
+          <div class="field">
+            <label>Menu bar</label>
+            <div class="row">
+              <button class="btn" id="tray-btn" type="button">Show approvals in the menu bar</button>
+              <button class="btn" id="perm-btn" type="button">Permissions</button>
+            </div>
+            <span class="help">The menu bar item shows how many actions wait for your approval, and lives while this app is open.</span>
+          </div>
+          <div class="field">
+            <label>Shortcuts</label>
+            <span class="help"><kbd>1</kbd> Overview · <kbd>2</kbd> Queue · <kbd>3</kbd> Usage · <kbd>4</kbd> Guard · <kbd>5</kbd> Settings · <kbd>Esc</kbd> closes a report.</span>
+          </div>
+        </section>
+      </div>
+    </main>
   </div>
-</main>
+</div>
 
 <div class="reader" id="reader" hidden>
   <section class="reader-panel" role="dialog" aria-modal="true" aria-labelledby="reader-title">
-    <div class="reader-head"><h2 id="reader-title">Report</h2><button class="btn" type="button" id="reader-close">Close</button></div>
+    <div class="reader-head">
+      <h2 id="reader-title">Report</h2>
+      <div class="seg" role="group" aria-label="View">
+        <button type="button" data-view="report" aria-pressed="true">Report</button>
+        <button type="button" data-view="timeline" aria-pressed="false">Timeline</button>
+      </div>
+      <button class="btn" type="button" id="reader-close">Close</button>
+    </div>
     <div class="md" id="reader-body"></div>
   </section>
 </div>
@@ -336,6 +596,8 @@ const store = {
   set(k, v) { try { localStorage.setItem("sadyanx." + k, JSON.stringify(v)); } catch {} },
 };
 const REFRESH_MS = 60_000;
+const motionOK = () => !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+const snap = () => data || exampleSnapshot(ui.days);
 
 const GROUPS = ["mode", "model", "effort", "model_effort", "phase", "repo"];
 const ui = { metric: "tokens", by: GROUPS.includes(store.get("by", "mode")) ? store.get("by", "mode") : "mode", filter: store.get("filter", "all"), days: store.get("days", 30) };
@@ -361,24 +623,33 @@ function exampleSnapshot(days) {
     const d = new Date(today); d.setDate(d.getDate() - i);
     const wd = d.getDay(); if (wd === 0 || wd === 6) continue;
     const w = 0.5 + ((i * 37) % 11) / 10;
-    by_day[ymd(d)] = { calls: Math.round(3 + w * 4), tokens: Math.round(w * 4.2e6), output: Math.round(w * 48e3), cost_usd: +(w * 0.9).toFixed(2), turns: Math.round(w * 30), seconds: Math.round(w * 2400) };
+    const tokens = Math.round(w * 4.2e6), hit = 0.86 + ((i * 53) % 11) / 100;
+    by_day[ymd(d)] = { calls: Math.round(3 + w * 4), tokens, output: Math.round(w * 48e3), cost_usd: +(w * 0.9).toFixed(2), turns: Math.round(w * 30), seconds: Math.round(w * 2400),
+      cache_read: Math.round(tokens * hit), cache_write: Math.round(tokens * (1 - hit) * 0.9), input: Math.round(tokens * (1 - hit) * 0.1) };
   }
   const tot = Object.values(by_day).reduce((a, b) => { for (const k in b) a[k] = (a[k] || 0) + b[k]; return a; }, {});
   const b = (share) => ({ calls: Math.round(tot.calls * share), tokens: Math.round(tot.tokens * share), output: 0, cost_usd: +(tot.cost_usd * share).toFixed(2), turns: 0, seconds: Math.round(tot.seconds * share) });
   const now = new Date().toISOString().slice(0, 19);
-  const t = (id, title, status, extra = {}) => ({ id, title, status, type: "code", repo: "work-api", mode: "smart", effort: "", phase: "work", attempts: "1", cost_usd: 0, jira: "", pr_url: "", doc_url: "", report: "", reason: "", created: now, updated: now, pending: [], ...extra });
+  const t = (id, title, status, extra = {}) => {
+    const row = { id, title, status, type: "code", repo: "work-api", mode: "smart", effort: "", phase: "work", attempts: "1", cost_usd: 0, budget_usd: 10, run: "autonomous",
+      cost_flag: "", peer_median_usd: 0.95, peers: 7, jira: "", pr_url: "", doc_url: "", report: "", reason: "", created: now, updated: now, pending: [], ...extra };
+    row.budget_used = row.run === "supervised" ? null : +(row.cost_usd / row.budget_usd).toFixed(3);
+    return row;
+  };
   return {
     generated: now, days, root: "", kill_switch: false, example: true, persona: { name: "Sady", line: "1 waiting for your yes." },
     counts: { done: 3, "needs-approval": 1, running: 1, blocked: 1 }, running: ["0006"], pending_approvals: 1,
     tasks: [
-      t("0006", "PROJ-1240: add retries to the export job", "running", { phase: "fix", attempts: "2", cost_usd: 1.84 }),
+      t("0006", "PROJ-1240: add retries to the export job", "running", { phase: "fix", attempts: "3", cost_usd: 8.42, cost_flag: "budget" }),
       t("0005", "PROJ-1238: deploy the new worker size", "needs-approval", { repo: "infra-iac", cost_usd: 0.92, pending: [{ id: "3f9a1c2e", kind: "tool", category: "deploy", created: now, text: "[3f9a1c2e] deploy: terraform apply -target=module.worker" }] }),
-      t("0004", "PROJ-1234: memory alarms for the worker", "done", { repo: "infra-iac", cost_usd: 2.41, pr_url: "https://example.com/pr/12" }),
+      t("0004", "PROJ-1234: memory alarms for the worker", "done", { repo: "infra-iac", cost_usd: 2.41, cost_flag: "peers", run: "supervised", pr_url: "https://example.com/pr/12" }),
       t("0003", "Research: slow queries after the release", "done", { type: "research", repo: "", mode: "balanced", cost_usd: 0.38 }),
       t("0002", "PROJ-1229: fix the flaky checkout test", "blocked", { cost_usd: 1.12, reason: "needs a test database URL" }),
       t("0001", "PROJ-1221: rename the billing env vars", "done", { cost_usd: 0.77, pr_url: "https://example.com/pr/9" }),
     ],
     model_free: { gates: 34, setup: 4, verifications: 15, pushes: 8, prs_opened: 3, ci_results: 6, ci_reruns: 1 },
+    weekly: { current: { tokens: 41.2e6, finished: 6, first_pass_pct: 67, tokens_per_finished: 5.1e6, fix_calls: 4, denials: 3 },
+      previous: { tokens: 48.0e6, finished: 5, first_pass_pct: 60, tokens_per_finished: 6.4e6, fix_calls: 7, denials: 2 } },
     guard: { verdicts: { allow: 412, deny: 9, ask: 3 }, by_category: { deny: { write: 6, secrets: 2, forbidden: 1 }, ask: { deploy: 2, comment: 1 } },
       recent_denials: [
         { ts: now, task: "0006", tool: "Bash", category: "write", reason: "no writing outside the worktree: ~/Library/Caches/example" },
@@ -429,10 +700,12 @@ async function load() {
 function drawIcon(size, tray) {
   const c = document.createElement("canvas"); c.width = c.height = size; const g = c.getContext("2d"); const u = size / 32;
   const rr = (x, y, w, h, r) => { g.beginPath(); g.roundRect(x * u, y * u, w * u, h * u, r * u); g.fill(); };
-  if (!tray) { g.fillStyle = "#18202b"; rr(1, 1, 30, 30, 7); }
+  if (!tray) { g.fillStyle = "#151126"; rr(1, 1, 30, 30, 7); }
+  const grad = g.createLinearGradient(7 * u, 0, 25 * u, 0);
+  grad.addColorStop(0, "#ec4899"); grad.addColorStop(0.5, "#8b5cf6"); grad.addColorStop(1, "#3b82f6");
   const bars = [[7, 8, 18], [7, 14.5, 13], [7, 21, 9]];
-  bars.forEach(([x, y, w], i) => { g.fillStyle = tray ? "#000" : i === 0 ? "#3987e5" : "#c9d2de"; rr(x, y, w, 3.5, 1.75); });
-  if (!tray) { g.fillStyle = "#fab219"; g.beginPath(); g.arc(23 * u, 22.75 * u, 2.6 * u, 0, Math.PI * 2); g.fill(); }
+  bars.forEach(([x, y, w], i) => { g.fillStyle = tray ? "#000" : i === 0 ? grad : "#d6d0e6"; rr(x, y, w, 3.5, 1.75); });
+  if (!tray) { g.fillStyle = "#fbbf24"; g.beginPath(); g.arc(23 * u, 22.75 * u, 2.6 * u, 0, Math.PI * 2); g.fill(); }
   return c.toDataURL("image/png");
 }
 
@@ -468,11 +741,79 @@ async function enableTray() {
 function setPressed(sel, attr, val) { document.querySelectorAll(sel).forEach((b) => b.setAttribute("aria-pressed", String(b.dataset[attr] === val))); }
 
 function render() {
-  const d = data || exampleSnapshot(ui.days);
-  $("#source-label").textContent = source === "live" ? `your harness · ${d.root || ""}` : "example data";
+  const d = snap();
+  const sl = $("#source-label"); sl.textContent = source === "live" ? "your harness" : "example data"; sl.title = source === "live" ? d.root || "" : "";
   $("#stamp").textContent = source === "live" && d.generated ? "updated " + new Date(d.generated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
   const kp = $("#kill-pill"); kp.className = "pill " + (d.kill_switch ? "critical" : "good"); kp.textContent = d.kill_switch ? "kill switch ON" : "kill switch off";
-  renderGate(); renderAttention(d); renderKpis(d); renderModelFree(d); renderChart(d); renderBreakdown(d); renderQueue(d); renderGuard(d);
+  renderGate(); renderNav(d); renderAttention(d); renderKpis(d); renderWeekly(d); renderModelFree(d); renderChart(d); renderCache(d); renderBreakdown(d); renderQueue(d); renderGuard(d);
+}
+
+// ---------- pages ----------
+// Five pages behind a sidebar, routed on the plain hash (#overview, #queue, #usage, #guard, #setup).
+const PAGES = ["overview", "queue", "usage", "guard", "setup"];
+const PAGE_HEAD = {
+  overview: ["Overview", "What waits for you, what runs, and how the period went"],
+  queue: ["Queue", "Every task, its status, cost and links"],
+  usage: ["Usage", "Where the tokens and the agent time went"],
+  guard: ["Guard", "What the guard allowed, parked and denied"],
+  setup: ["Settings", "Connection, menu bar and shortcuts"],
+};
+let page = null, enterTimer;
+function go(name) { if (!PAGES.includes(name)) return; try { location.hash = name; } catch {} show(name); }
+function show(name) {
+  if (!PAGES.includes(name)) name = "overview";
+  if (name === page) return;
+  page = name; store.set("page", name);
+  let el = null;
+  document.querySelectorAll(".page").forEach((p) => { const on = p.dataset.page === name; p.hidden = !on; p.classList.remove("enter"); if (on) el = p; });
+  document.querySelectorAll(".nav-link").forEach((a) => { if (a.dataset.page === name) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+  $("#page-title").textContent = PAGE_HEAD[name][0]; $("#page-sub").textContent = PAGE_HEAD[name][1];
+  moveIndicator();
+  if (motionOK()) {
+    void el.offsetWidth; el.classList.add("enter");
+    clearTimeout(enterTimer); enterTimer = setTimeout(() => el.classList.remove("enter"), 1500);
+  }
+  if (name === "usage") { chartGrow = cacheGrow = true; renderChart(snap()); renderCache(snap()); }
+  if (name === "setup") renderSettings();
+  runCounters(el, true);
+  window.scrollTo(0, 0);
+}
+const navInd = $("#nav-ind");
+function moveIndicator() {
+  const a = document.querySelector('.nav-link[aria-current="page"]'); if (!a) return;
+  navInd.style.width = a.offsetWidth + "px"; navInd.style.height = a.offsetHeight + "px";
+  navInd.style.transform = `translate(${a.offsetLeft}px, ${a.offsetTop}px)`;
+  if (!navInd.classList.contains("ready")) requestAnimationFrame(() => requestAnimationFrame(() => navInd.classList.add("ready")));
+}
+new ResizeObserver(() => { navInd.classList.remove("ready"); moveIndicator(); }).observe($(".nav-list"));
+window.addEventListener("hashchange", () => show(location.hash.slice(1)));
+
+function renderNav(d) {
+  const set = (id, n, cls = "") => { const el = $("#count-" + id); el.hidden = !n; el.textContent = n > 99 ? "99+" : String(n); el.className = "count" + (n && cls ? " " + cls : ""); };
+  set("overview", d.tasks.reduce((n, t) => n + (t.pending?.length || 0), 0), "warn");
+  set("queue", d.tasks.filter((t) => t.status !== "done").length);
+  set("guard", d.guard?.verdicts?.deny || 0, "bad");
+}
+
+// numbers count up when a page opens and when a refresh changes them
+const counters = {}; // key -> {to, from, fmt}
+function counter(key, to, fmt) {
+  const prev = counters[key]; counters[key] = { to, fmt, from: prev ? prev.to : to };
+  return `<span data-count="${esc(key)}">${esc(fmt(to))}</span>`;
+}
+function tween(el, from, to, fmt) {
+  cancelAnimationFrame(el._raf); const t0 = performance.now(), dur = 800;
+  const step = (t) => { const k = Math.min(1, Math.max(0, (t - t0) / dur)), e = 1 - (1 - k) ** 3; el.textContent = fmt(from + (to - from) * e); if (k < 1) el._raf = requestAnimationFrame(step); };
+  el._raf = requestAnimationFrame(step);
+}
+function runCounters(root, fromZero) {
+  if (!root) return;
+  const live = motionOK() && !root.closest(".page")?.hidden;
+  root.querySelectorAll("[data-count]").forEach((el) => {
+    const c = counters[el.dataset.count]; if (!c) return;
+    const from = fromZero ? 0 : c.from; c.from = c.to;
+    if (live && from !== c.to) tween(el, from, c.to, c.fmt);
+  });
 }
 
 function renderGate() {
@@ -497,7 +838,7 @@ async function gateAction() {
   } else if (gateMode === "setup") {
     text.innerHTML = "<strong>The sadyanx MCP server is not running in this Claude app.</strong> Register it once (Settings shows the command), then quit and reopen the Claude app. <span class=\"stamp\"></span>";
     text.querySelector(".stamp").textContent = `(Claude answered: ${lastCode || "no code"}; this view is ${desktop?.app ? "the installed app" : "a Claude window"})`;
-    add("Show setup", () => toggleSettings(true)); add("Try again", () => load(), false);
+    add("Show setup", () => go("setup")); add("Try again", () => load(), false);
   } else if (gateMode === "denied") {
     text.innerHTML = "<strong>This app is not allowed to use the sadyanx server.</strong> Allow it in the artifact's Permissions.";
     add("Try again", () => load());
@@ -541,6 +882,9 @@ function renderAttention(d) {
   }
   for (const [key, st] of Object.entries(decisions)) if (st.done) parts.push(`<p class="outcome" data-done="${esc(key)}"></p>`);
   if (running.length) parts.push(`<div class="running">${running.map((t) => `<span class="pill live">running · ${esc(t.id)} ${esc(t.phase || "")}</span>`).join("")}</div>`);
+  // spend worth a look on tasks still in flight; finished ones keep their flag in the queue
+  const watch = d.tasks.filter((t) => t.cost_flag && !["done", "failed", "killed"].includes(t.status));
+  if (watch.length) parts.push(`<div class="watch"><h2>Spending to watch</h2>${watch.map((t) => `<div class="watch-row"><button class="linkbtn mono" type="button" data-timeline="${esc(t.id)}" title="Open its timeline">${esc(t.id)}</button>${spendFlag(t)}${spendMeter(t)}<span class="title" title="${esc(t.title)}">${esc(t.title)}</span><span class="num">${fmtUsd(t.cost_usd)}</span></div>`).join("")}</div>`);
   a.innerHTML = parts.join("");
   // CLI output is text, never markup
   for (const [key, st] of Object.entries(decisions)) {
@@ -595,29 +939,130 @@ function md(src) {
   return out.join("\n");
 }
 
+// ---------- the task reader: its report and its timeline ----------
 let readerFrom = null;
-async function openReport(task) {
-  if (!mcp || !TASK_ID.test(task)) return;
+const reader = { task: "", view: "report", hasReport: false, cache: {}, filter: "all", example: false };
+function openTask(task, view) {
+  if (!TASK_ID.test(task)) return;
+  const t = snap().tasks.find((x) => x.id === task);
+  Object.assign(reader, { task, hasReport: !!(mcp && t?.report), cache: {}, filter: "all", example: !mcp });
   readerFrom = document.activeElement;
-  $("#reader-title").textContent = `Report · ${task}`;
-  $("#reader-body").innerHTML = `<p class="stamp">Loading…</p>`;
+  $("#reader-title").textContent = t ? `${task} · ${t.title}` : task;
+  $("#reader-title").title = t?.title || "";
   $("#reader").hidden = false; $("#reader-close").focus();
-  try {
-    const r = await mcp.callTool(SERVER, "report", { task }, { cache: false });
-    const text = typeof r.payload === "string" ? r.payload : r.content?.[0]?.text || "";
-    $("#reader-body").innerHTML = md(text);
-  } catch (e) {
-    const p = document.createElement("p"); p.className = "outcome bad";
-    p.textContent = e?.code === "tool_error" ? toolText(e)
-      : MCP_STATE[e?.code] === "setup" ? "The sadyanx MCP server is not running in this Claude app."
-      : `Could not load the report (${e?.code || "error"}). If the server was just updated, quit and reopen the Claude app.`;
-    $("#reader-body").replaceChildren(p);
+  showView(view === "report" && reader.hasReport ? "report" : "timeline", true);
+}
+async function showView(view, fresh = false) {
+  reader.view = view;
+  setPressed("[data-view]", "view", view);
+  $('[data-view="report"]').disabled = !reader.hasReport;
+  const body = $("#reader-body"); const task = reader.task;
+  if (reader.cache[view] == null) {
+    body.className = "md"; body.innerHTML = `<p class="stamp">Loading…</p>`;
+    try {
+      if (reader.example) reader.cache[view] = exampleTimeline(task);
+      else {
+        const r = await mcp.callTool(SERVER, view, { task }, { cache: false });
+        reader.cache[view] = r.payload ?? r.content?.[0]?.text ?? "";
+      }
+    } catch (e) {
+      if (reader.task !== task || reader.view !== view) return;
+      const what = view === "report" ? "the report" : "the timeline";
+      const text = toolText(e);
+      const p = document.createElement("p"); p.className = "outcome bad";
+      p.textContent = /unknown tool/.test(text) || e?.code === "not_in_manifest"
+        ? `This version of the page needs a newer sadyanx server: quit and reopen the Claude app, then try again.`
+        : e?.code === "tool_error" ? text
+        : MCP_STATE[e?.code] === "setup" ? "The sadyanx MCP server is not running in this Claude app."
+        : `Could not load ${what} (${e?.code || "error"}). If the server was just updated, quit and reopen the Claude app.`;
+      body.replaceChildren(p); return;
+    }
+    if (reader.task !== task || reader.view !== view) return;  // switched while it loaded
   }
+  if (view === "report") { body.className = "md"; body.innerHTML = md(String(reader.cache.report)); }
+  else renderTimeline(body, reader.cache.timeline, fresh || !body.classList.contains("timeline"));
+}
+
+const TL_LABEL = { start: "start", agent: "agent", call: "call", gate: "gate", check: "check", ship: "ship", ci: "ci",
+  approval: "approval", guard: "guard", notify: "notify", final: "final", error: "error", note: "note" };
+const TL_FILTERS = [["all", "All", () => true], ["call", "Agent calls", (e) => e.kind === "call"],
+  ["bad", "Problems", (e) => e.tone === "bad"], ["approval", "Approvals", (e) => e.kind === "approval"]];
+function renderTimeline(body, raw, animate) {
+  let t = raw;
+  try { if (typeof raw === "string") t = JSON.parse(raw); } catch { t = null; }
+  body.className = "timeline";
+  if (!t || !Array.isArray(t.events)) { body.innerHTML = `<p class="outcome bad">The timeline came back in a shape this page does not know. Update sadyanx, then quit and reopen the Claude app.</p>`; return; }
+  const ev = t.events;
+  if (!ev.length) { body.innerHTML = `<div class="empty">Nothing has happened to this task yet: it has not run.</div>`; return; }
+  const calls = ev.filter((e) => e.kind === "call");
+  const sum = (k) => calls.reduce((a, e) => a + (Number(e[k]) || 0), 0);
+  const span = (Date.parse(ev.at(-1).ts) - Date.parse(ev[0].ts)) / 1000;
+  const stats = [[fmtN(calls.length), "agent calls"], [fmtN(sum("tokens")), "tokens"], [fmtUsd(sum("cost_usd")), "est. cost"],
+    [fmtDur(sum("seconds")), "agent time"], [fmtN(ev.filter((e) => e.kind === "guard").length), "denied by the guard"],
+    [Number.isFinite(span) ? fmtDur(span) : "–", "first to last event"]];
+  const keep = (TL_FILTERS.find(([k]) => k === reader.filter) || TL_FILTERS[0])[2];
+  const shown = ev.filter(keep);
+  let html = `<div class="tl-sum">${stats.map(([n, l]) => `<div><span class="n">${esc(n)}</span><span class="l">${esc(l)}</span></div>`).join("")}</div>
+    <div class="tl-bar"><div class="seg" role="group" aria-label="Show">${TL_FILTERS.map(([k, l]) => `<button type="button" data-tl="${k}" aria-pressed="${k === reader.filter}">${l}</button>`).join("")}</div>
+    ${reader.example ? `<span class="flag example">example timeline</span>` : ""}${t.truncated ? `<span class="stamp">older events left out</span>` : ""}</div>`;
+  if (!shown.length) html += `<div class="empty">No events of this kind.</div>`;
+  let day = "", i = 0, open = false;
+  for (const e of shown) {
+    const d = String(e.ts).slice(0, 10);
+    if (d !== day) {
+      if (open) html += `</ol>`;
+      const dt = new Date(d + "T12:00:00");
+      html += `<div class="tl-day">${esc(isNaN(dt) ? d : dt.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" }))}</div><ol class="tl">`;
+      day = d; open = true;
+    }
+    const nums = e.kind === "call" ? `<span class="nums">${fmtN(e.tokens)} tokens · ${fmtUsd(e.cost_usd)} · ${fmtDur(e.seconds)}</span>` : "";
+    const more = e.detail ? `<details><summary>details</summary><pre>${esc(e.detail)}</pre></details>` : "";
+    const kind = TL_LABEL[e.kind] ? e.kind : "note";
+    const tone = ["good", "bad", "warn"].includes(e.tone) ? " " + e.tone : "";
+    html += `<li class="ev k-${kind}${tone}" style="--i:${Math.min(i++, 30)}"><span class="t">${esc(String(e.ts).slice(11, 19))}</span><span class="mark" aria-hidden="true"></span>
+      <div class="body"><span class="kind">${TL_LABEL[kind]}</span><span class="txt">${esc(e.text)}</span>${nums}${more}</div></li>`;
+  }
+  if (open) html += `</ol>`;
+  body.innerHTML = html;
+  body.classList.remove("enter");
+  if (animate && motionOK()) { void body.offsetWidth; body.classList.add("enter"); setTimeout(() => body.classList.remove("enter"), 1600); }
+}
+
+// shown until the app is connected, so the view can be seen; marked as an example
+function exampleTimeline(task) {
+  const day = ymd(new Date(Date.now() - 864e5));
+  const at = (hms) => `${day}T${hms}`;
+  const call = (hms, phase, attempt, who, outcome, tokens, cost, seconds) =>
+    ({ ts: at(hms), kind: "call", tone: "", text: `${phase} call, attempt ${attempt} (${who}): ${outcome}`, tokens, cost_usd: cost, seconds });
+  return { task, truncated: false, events: [
+    { ts: at("09:12:04"), kind: "start", tone: "", text: `=== task ${task}: PROJ-1240: add retries to the export job` },
+    { ts: at("09:12:05"), kind: "agent", tone: "", text: "agent: starting session 6c1e… (mode smart: opus/high, phase work, budget left $10.00)" },
+    { ts: at("09:31:40"), kind: "guard", tone: "bad", text: "guard denied Read (secrets): secret files may not be read or copied: .env" },
+    call("09:48:12", "work", 1, "smart · opus/high", "done", 3.1e6, 2.84, 2160),
+    { ts: at("09:48:13"), kind: "gate", tone: "", text: "gate: make test" },
+    { ts: at("09:52:40"), kind: "check", tone: "bad", text: "verification failed: 2 problem(s)", detail: "- make test: test_export_retries_on_timeout failed\n- the report claims a retry limit the diff does not set" },
+    { ts: at("09:52:41"), kind: "agent", tone: "", text: "attempt 2: escalating smart/high to smart/max" },
+    call("10:20:05", "fix", 2, "smart · opus/max", "done", 2.4e6, 2.95, 1640),
+    { ts: at("10:20:06"), kind: "gate", tone: "", text: "gate: make test" },
+    { ts: at("10:24:30"), kind: "check", tone: "good", text: "verification passed" },
+    { ts: at("10:24:31"), kind: "check", tone: "", text: "code review: /code-review medium against main (mode balanced)" },
+    call("10:31:02", "code-review", 2, "balanced · sonnet/medium", "done", 0.9e6, 0.61, 390),
+    { ts: at("10:31:03"), kind: "approval", tone: "warn", text: "parked for your approval: [3f9a1c2e] deploy: terraform apply -target=module.worker" },
+    { ts: at("11:05:47"), kind: "approval", tone: "good", text: "you approved [3f9a1c2e]" },
+    { ts: at("11:06:10"), kind: "ship", tone: "", text: "pushing feature/PROJ-1240-export-retries (3 commits)" },
+    { ts: at("11:06:15"), kind: "ship", tone: "good", text: "PR opened: https://example.com/pr/14" },
+    { ts: at("11:19:02"), kind: "ci", tone: "good", text: "CI: AWS CodeBuild passed on 50a9a56e (https://example.com/run/88)" },
+    { ts: at("11:19:03"), kind: "final", tone: "good", text: "final status: done PR ready for your review" },
+  ] };
 }
 function closeReport() { $("#reader").hidden = true; readerFrom?.focus?.(); }
 $("#reader-close").onclick = closeReport;
 $("#reader").addEventListener("click", (e) => { if (e.target.id === "reader") closeReport(); });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#reader").hidden) closeReport(); });
+document.addEventListener("keydown", (e) => {
+  if (!$("#reader").hidden) { if (e.key === "Escape") closeReport(); return; }
+  if (e.metaKey || e.ctrlKey || e.altKey || e.target.closest?.("input, textarea, select, [contenteditable]")) return;
+  const n = Number(e.key); if (Number.isInteger(n) && n >= 1 && n <= PAGES.length) go(PAGES[n - 1]);
+});
 
 // ---------- approve / reject ----------
 const decisions = {}; // "<task>/<approval id>" -> {open, busy, verb, error, done}
@@ -654,15 +1099,18 @@ function renderKpis(d) {
   const u = d.usage.total || {}; const v = d.guard.verdicts || {};
   const done = (d.usage.tasks || []).filter((t) => t.status === "done");
   const fp = done.filter((t) => t.first_pass).length;
+  const pct = (x) => Math.round(x) + "%";
   const tiles = [
-    ["Agent calls", fmtN(u.calls), `${fmtN(u.turns)} turns`],
-    ["Tokens", fmtN(u.tokens), `${fmtN(u.output)} output · cache hit ${Math.round((d.usage.cache_hit_ratio || 0) * 100)}%`],
-    ["Est. cost", fmtUsd(u.cost_usd), "list price; a Max plan spends quota"],
-    ["Agent time", fmtDur(u.seconds), `across ${Object.keys(d.usage.by_day || {}).length} active days`],
-    ["First pass", done.length ? Math.round(fp / done.length * 100) + "%" : "–", done.length ? `${fp} of ${done.length} done tasks with no fix round` : "no finished tasks yet"],
-    ["Guard denied", fmtN(v.deny || 0), `${fmtN(v.allow || 0)} allowed · ${fmtN(v.ask || 0)} parked`],
+    ["calls", "Agent calls", u.calls, fmtN, `${fmtN(u.turns)} turns`],
+    ["tokens", "Tokens", u.tokens, fmtN, `${fmtN(u.output)} output · cache hit ${Math.round((d.usage.cache_hit_ratio || 0) * 100)}%`],
+    ["cost", "Est. cost", u.cost_usd, fmtUsd, "list price; a Max plan spends quota"],
+    ["time", "Agent time", u.seconds, fmtDur, `across ${Object.keys(d.usage.by_day || {}).length} active days`],
+    ["fp", "First pass", done.length ? fp / done.length * 100 : null, pct, done.length ? `${fp} of ${done.length} done tasks with no fix round` : "no finished tasks yet"],
+    ["deny", "Guard denied", v.deny || 0, fmtN, `${fmtN(v.allow || 0)} allowed · ${fmtN(v.ask || 0)} parked`],
   ];
-  $("#kpis").innerHTML = tiles.map(([l, val, n]) => `<div class="kpi"><span class="label">${esc(l)}</span><span class="value">${esc(val)}</span><span class="note">${esc(n)}</span></div>`).join("");
+  $("#kpi-title").textContent = `Last ${d.days} days`;
+  $("#kpis").innerHTML = tiles.map(([k, l, val, f, n], i) => `<div class="kpi" style="--i:${i}"><span class="label">${esc(l)}</span><span class="value">${val == null ? "–" : counter("kpi-" + k, Number(val) || 0, f)}</span><span class="note">${esc(n)}</span></div>`).join("");
+  runCounters($("#kpis"), false);
 }
 
 const MODEL_FREE = [["gates", "gate runs"], ["setup", "setup commands"], ["verifications", "verifications"],
@@ -672,15 +1120,128 @@ function renderModelFree(d) {
   $("#mf-hint").textContent = `Steps the harness did itself in the last ${d.days} days: no model, no tokens. Counted from its logs, not estimated.`;
   const items = MODEL_FREE.filter(([k]) => mf[k]);
   $("#model-free").innerHTML = items.length
-    ? items.map(([k, l]) => `<div><span class="n">${fmtN(mf[k])}</span><span class="l">${esc(l)}</span></div>`).join("")
+    ? items.map(([k, l], i) => `<div style="--i:${i}"><span class="n">${counter("mf-" + k, Number(mf[k]) || 0, fmtN)}</span><span class="l">${esc(l)}</span></div>`).join("")
     : `<div class="empty">Nothing yet in this period.</div>`;
+  runCounters($("#model-free"), false);
+}
+
+// ---------- spend ----------
+const pctOf = (x) => Math.round((Number(x) || 0) * 100) + "%";
+function spendMeter(t, i = 0) {
+  if (t.budget_used == null || !(t.budget_usd > 0)) return "";
+  return `<div class="meter${t.cost_flag === "budget" ? " hot" : ""}" role="img" aria-label="${pctOf(t.budget_used)} of its ${fmtUsd(t.budget_usd)} budget" title="${pctOf(t.budget_used)} of its ${fmtUsd(t.budget_usd)} budget"><i style="--i:${i};width:${Math.min(100, t.budget_used * 100).toFixed(1)}%"></i></div>`;
+}
+function spendFlag(t) {
+  if (t.cost_flag === "budget") return `<span class="flag budget">${pctOf(t.budget_used)} of budget</span>`;
+  if (t.cost_flag === "peers" && t.peer_median_usd > 0)
+    return `<span class="flag peers" title="Median of ${esc(t.peers)} finished ${esc(t.mode)} ${esc(t.type)} tasks: ${fmtUsd(t.peer_median_usd)}">${(t.cost_usd / t.peer_median_usd).toFixed(1)}× its peers</span>`;
+  return "";
+}
+function spendCell(t, i) {
+  const under = t.budget_used != null && t.budget_usd > 0 ? spendMeter(t, i) + `<span class="sub">of ${fmtUsd(t.budget_usd)}</span>`
+    : t.run === "supervised" ? `<span class="sub">supervised, no cap</span>` : "";
+  return `<td class="r spend"><span class="num">${fmtUsd(t.cost_usd)}</span>${under}${spendFlag(t)}</td>`;
+}
+
+// ---------- this week against the week before ----------
+// lower is better for everything but tasks finished and the first-pass rate
+const WEEK = [
+  ["finished", "Tasks finished", fmtN, true], ["first_pass_pct", "First pass", (v) => Math.round(v) + "%", true],
+  ["tokens_per_finished", "Tokens per task", fmtN, false], ["tokens", "Agent tokens", fmtN, false],
+  ["fix_calls", "Fix-round calls", fmtN, false], ["denials", "Guard denials", fmtN, false],
+];
+function renderWeekly(d) {
+  const box = $("#weekly"); const w = d.weekly;
+  if (!w?.current) { box.innerHTML = `<div class="empty">Update sadyanx to compare weeks.</div>`; return; }
+  box.innerHTML = WEEK.map(([k, label, f, up], i) => {
+    const cur = w.current[k], prev = w.previous?.[k];
+    let delta = "no change", cls = "";
+    if (cur == null) delta = "no finished tasks";
+    else if (prev == null || (prev === 0 && cur !== 0)) delta = prev == null ? "nothing to compare" : "new this week";
+    else if (cur !== prev) {
+      // a rate moves in points; counts move in percent
+      const diff = k === "first_pass_pct" ? cur - prev : (cur - prev) / prev * 100;
+      const unit = k === "first_pass_pct" ? " pts" : "%";
+      delta = `${diff > 0 ? "▲" : "▼"} ${Math.abs(Math.round(diff))}${unit}`;
+      if (Math.abs(diff) >= 10) cls = (diff > 0) === up ? "better" : "worse";
+    }
+    const value = cur == null ? "–" : counter("wk-" + k, Number(cur), f);
+    return `<div class="wk" style="--i:${i}"><span class="label">${esc(label)}</span><span class="value">${value}</span>
+      <span class="delta ${cls}">${esc(delta)}</span><span class="was">week before: ${prev == null ? "–" : esc(f(prev))}</span></div>`;
+  }).join("");
+  runCounters(box, false);
+}
+
+// ---------- cache hit rate per day ----------
+let cacheGrow = false, lastCacheW = 0;
+function renderCache(d) {
+  const box = $("#cache-chart");
+  const grow = cacheGrow && motionOK(); cacheGrow = false;
+  if (box.clientWidth) lastCacheW = box.clientWidth;
+  box.classList.toggle("grow", grow);
+  const days = []; const today = new Date();
+  for (let i = d.days - 1; i >= 0; i--) { const x = new Date(today); x.setDate(x.getDate() - i); days.push(ymd(x)); }
+  const pts = [];
+  days.forEach((day, i) => {
+    const b = d.usage.by_day?.[day]; if (!b) return;
+    const seen = (b.cache_read || 0) + (b.cache_write || 0) + (b.input || 0);
+    if (seen) pts.push({ i, day, hit: b.cache_read / seen * 100, b });
+  });
+  if (!pts.length) {
+    box.innerHTML = `<div class="empty">${Object.keys(d.usage.by_day || {}).length ? "Update sadyanx to see the cache per day." : `No agent runs in the last ${d.days} days.`}</div>`;
+    return;
+  }
+  const W = Math.max(280, box.clientWidth || 600), H = 200, L = 44, R = 10, T = 12, B = 24;
+  const iw = W - L - R, ih = H - T - B;
+  // the floor follows the data so a 90–97% band does not look flat; ticks every 5 or 10 points
+  const lo = Math.max(0, Math.floor((Math.min(...pts.map((p) => p.hit)) - 4) / 10) * 10);
+  const step = 100 - lo > 30 ? 20 : 100 - lo > 15 ? 10 : 5;
+  const x = (i) => L + (days.length > 1 ? i / (days.length - 1) * iw : iw / 2);
+  const y = (v) => T + ih - (v - lo) / (100 - lo) * ih;
+  const avg = (d.usage.cache_hit_ratio || 0) * 100;
+  const line = pts.map((p, k) => `${k ? "L" : "M"}${x(p.i).toFixed(1)},${y(p.hit).toFixed(1)}`).join("");
+  const area = `${line}L${x(pts.at(-1).i).toFixed(1)},${T + ih}L${x(pts[0].i).toFixed(1)},${T + ih}Z`;
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Cache hit rate per day, average ${Math.round(avg)}%"><defs>
+    <linearGradient id="cache-grad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" class="s3"></stop><stop offset=".5" class="s2"></stop><stop offset="1" class="s1"></stop></linearGradient>
+    <linearGradient id="cache-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="area-top"></stop><stop offset="1" class="area-bottom"></stop></linearGradient></defs><g class="grid">`;
+  for (let v = lo; v <= 100; v += step) s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"></line>`;
+  s += `</g><g class="axis">`;
+  for (let v = lo; v <= 100; v += step) s += `<text x="${L - 8}" y="${y(v) + 3.5}" text-anchor="end">${v}%</text>`;
+  const every = Math.ceil(days.length / Math.max(2, Math.floor(iw / 64)));
+  days.forEach((day, i) => { if ((days.length - 1 - i) % every === 0) s += `<text x="${x(i)}" y="${H - 6}" text-anchor="middle">${day.slice(5)}</text>`; });
+  s += `</g>`;
+  if (avg >= lo) s += `<line class="avg" x1="${L}" x2="${W - R}" y1="${y(avg)}" y2="${y(avg)}"></line><text class="avg-label" x="${W - R}" y="${y(avg) - 5}" text-anchor="end">period ${Math.round(avg)}%</text>`;
+  s += `<path class="area" d="${area}"></path><path class="line" d="${line}"></path>`;
+  const end = pts.at(-1);
+  s += `<circle class="dot end" cx="${x(end.i)}" cy="${y(end.hit)}" r="3.5"></circle><line class="cursor" y1="${T}" y2="${T + ih}" x1="0" x2="0" visibility="hidden"></line><circle class="dot hover" r="4" cx="0" cy="0" visibility="hidden"></circle>`;
+  s += `<rect class="hit" x="${L}" y="${T}" width="${iw}" height="${ih}"></rect></svg><div class="tip" hidden></div>`;
+  box.innerHTML = s;
+  const path = box.querySelector(".line"); try { path.style.setProperty("--len", Math.ceil(path.getTotalLength()) + 1); } catch {}
+  const tip = box.querySelector(".tip"), cur = box.querySelector(".cursor"), dot = box.querySelector(".dot.hover"), svg = box.querySelector("svg");
+  svg.addEventListener("mousemove", (e) => {
+    const r = svg.getBoundingClientRect(); const mx = (e.clientX - r.left) / r.width * W;
+    const p = pts.reduce((a, q) => Math.abs(x(q.i) - mx) < Math.abs(x(a.i) - mx) ? q : a, pts[0]);
+    cur.setAttribute("x1", x(p.i)); cur.setAttribute("x2", x(p.i)); cur.setAttribute("visibility", "visible");
+    dot.setAttribute("cx", x(p.i)); dot.setAttribute("cy", y(p.hit)); dot.setAttribute("visibility", "visible");
+    const dt = new Date(p.day + "T12:00:00");
+    tip.innerHTML = `<div><b>${esc(dt.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }))}</b></div>` +
+      [["Hit rate", Math.round(p.hit) + "%"], ["Read from cache", fmtN(p.b.cache_read)], ["Written to cache", fmtN(p.b.cache_write)], ["Fresh input", fmtN(p.b.input)]]
+        .map(([a, b]) => `<div class="row"><span>${a}</span><span>${esc(b)}</span></div>`).join("");
+    tip.hidden = false; const tw = tip.offsetWidth; const px = x(p.i) / W * box.clientWidth;
+    tip.style.left = Math.min(Math.max(0, px - tw / 2), box.clientWidth - tw) + "px"; tip.style.top = "0px";
+  });
+  svg.addEventListener("mouseleave", () => { tip.hidden = true; cur.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); });
 }
 
 function niceStep(max, n = 4) { if (max <= 0) return 1; const raw = max / n; const p = 10 ** Math.floor(Math.log10(raw)); const m = raw / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * p; }
 function barPath(x, y, w, h, r) { r = Math.min(r, w / 2, h); return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`; }
 
+let chartGrow = false, lastChartW = 0;
 function renderChart(d) {
   const box = $("#chart"); const k = ui.metric;
+  const grow = chartGrow && motionOK(); chartGrow = false;
+  if (box.clientWidth) lastChartW = box.clientWidth;
+  box.classList.toggle("grow", grow);
   $("#chart-title").textContent = { tokens: "Tokens per day", cost_usd: "Estimated cost per day", seconds: "Agent time per day" }[k];
   const days = []; const today = new Date();
   for (let i = d.days - 1; i >= 0; i--) { const x = new Date(today); x.setDate(x.getDate() - i); days.push(ymd(x)); }
@@ -690,14 +1251,15 @@ function renderChart(d) {
   const W = Math.max(280, box.clientWidth || 600), H = 230, L = 54, R = 6, T = 10, B = 24;
   const iw = W - L - R, ih = H - T - B; const step = niceStep(max); const top = Math.ceil(max / step) * step;
   const y = (v) => T + ih - (v / top) * ih; const band = iw / rows.length; const bw = Math.max(1.5, band - 2);
-  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc($("#chart-title").textContent)}"><g class="grid">`;
+  // one gradient over the plot height: short bars stay blue, the tallest reach pink
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc($("#chart-title").textContent)}"><defs><linearGradient id="bar-grad" gradientUnits="userSpaceOnUse" x1="0" y1="${T}" x2="0" y2="${T + ih}"><stop offset="0" class="s1"></stop><stop offset=".5" class="s2"></stop><stop offset="1" class="s3"></stop></linearGradient></defs><g class="grid">`;
   for (let v = 0; v <= top + step / 1000; v += step) s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"></line>`;
   s += `</g><g class="axis">`;
   for (let v = 0; v <= top + step / 1000; v += step) s += `<text x="${L - 8}" y="${y(v) + 3.5}" text-anchor="end">${esc(fmtMetric(k, v))}</text>`;
   const every = Math.ceil(rows.length / Math.max(2, Math.floor(iw / 64)));
   rows.forEach((r, i) => { if ((rows.length - 1 - i) % every === 0) s += `<text x="${L + i * band + band / 2}" y="${H - 6}" text-anchor="middle">${r.day.slice(5)}</text>`; });
   s += `</g><g>`;
-  rows.forEach((r, i) => { const v = Number(r[k]) || 0; if (v > 0) { const h = Math.max(1, ih - (y(v) - T)); s += `<path class="bar-mark" data-i="${i}" d="${barPath(L + i * band + (band - bw) / 2, T + ih - h, bw, h, Math.min(4, bw / 2))}"></path>`; } });
+  rows.forEach((r, i) => { const v = Number(r[k]) || 0; if (v > 0) { const h = Math.max(1, ih - (y(v) - T)); s += `<path class="bar-mark" data-i="${i}" style="--d:${Math.round(i * 520 / rows.length)}ms" d="${barPath(L + i * band + (band - bw) / 2, T + ih - h, bw, h, Math.min(4, bw / 2))}"></path>`; } });
   rows.forEach((r, i) => { s += `<rect class="hit" data-i="${i}" x="${L + i * band}" y="${T}" width="${band}" height="${ih}"></rect>`; });
   s += `</g></svg><div class="tip" hidden></div>`;
   box.innerHTML = s;
@@ -721,8 +1283,8 @@ function renderBreakdown(d) {
   const entries = Object.entries(src).sort((a, b) => b[1].tokens - a[1].tokens);
   if (!entries.length) { $("#breakdown").innerHTML = `<div class="empty">No agent runs in this period.</div>`; return; }
   const max = entries[0][1].tokens || 1;
-  $("#breakdown").innerHTML = entries.map(([k, b]) => `<div class="brow"><span class="k" title="${esc(k)}">${esc(k)}</span>
-    <div class="track"><div class="fill" style="width:${Math.max(1, b.tokens / max * 100).toFixed(1)}%"></div></div>
+  $("#breakdown").innerHTML = entries.map(([k, b], i) => `<div class="brow"><span class="k" title="${esc(k)}">${esc(k)}</span>
+    <div class="track"><div class="fill" style="--i:${Math.min(i, 10)};width:${Math.max(1, b.tokens / max * 100).toFixed(1)}%"></div></div>
     <span class="v">${fmtN(b.tokens)} · ${total ? Math.round(b.tokens / total * 100) : 0}%</span>
     <span class="meta">${fmtN(b.calls)} calls · ${fmtUsd(b.cost_usd)} · ${fmtDur(b.seconds)}</span></div>`).join("");
 }
@@ -732,17 +1294,18 @@ const STATUS = { done: "good", running: "live", verifying: "live", "needs-approv
 function renderQueue(d) {
   const rows = d.tasks.filter((t) => ui.filter === "all" || t.status !== "done");
   if (!rows.length) { $("#queue").innerHTML = `<tbody><tr><td class="empty">${ui.filter === "all" ? "No tasks yet. Create one with /task." : "Every task is done."}</td></tr></tbody>`; return; }
-  $("#queue").innerHTML = `<thead><tr><th>ID</th><th>Status</th><th>Task</th><th>Repo</th><th>Mode</th><th class="r">Tries</th><th class="r">Cost</th><th>Updated</th><th>Open</th></tr></thead><tbody>` +
-    rows.map((t) => {
+  $("#queue").innerHTML = `<thead><tr><th>ID</th><th>Status</th><th>Task</th><th>Repo</th><th>Mode</th><th class="r">Tries</th><th class="r">Spend</th><th>Updated</th><th>Open</th></tr></thead><tbody>` +
+    rows.map((t, i) => {
       const links = [];
       if (safeUrl(t.pr_url)) links.push(`<a href="${esc(t.pr_url)}" target="_blank" rel="noopener">PR</a>`);
       if (safeUrl(t.doc_url)) links.push(`<a href="${esc(t.doc_url)}" target="_blank" rel="noopener">Doc</a>`);
       if (source === "live" && t.report) links.push(`<button class="linkbtn" type="button" data-report="${esc(t.id)}">Report</button>`);
+      if (source === "live" || !mcp) links.push(`<button class="linkbtn" type="button" data-timeline="${esc(t.id)}">Timeline</button>`);
       const why = t.reason && t.status !== "done" ? `<div class="why">${esc(t.reason)}</div>` : "";
-      return `<tr><td class="mono">${esc(t.id)}</td><td><span class="pill ${STATUS[t.status] ?? ""}">${esc(t.status)}</span></td>
+      return `<tr style="--i:${Math.min(i, 18)}"><td class="mono">${esc(t.id)}</td><td><span class="pill ${STATUS[t.status] ?? ""}">${esc(t.status)}</span></td>
         <td class="t"><div class="ttl">${esc(t.title)}</div>${why}</td><td>${esc(t.repo || (t.type === "research" ? "research" : "–"))}</td>
         <td class="mono">${esc(t.mode || "–")}${t.effort ? "/" + esc(t.effort) : ""}</td><td class="r num">${esc(t.attempts || "–")}</td>
-        <td class="r num">${fmtUsd(t.cost_usd)}</td><td>${when(t.updated || t.created)}</td><td><div class="links">${links.join("") || "–"}</div></td></tr>`;
+        ${spendCell(t, Math.min(i, 18))}<td>${when(t.updated || t.created)}</td><td><div class="links">${links.join("") || "–"}</div></td></tr>`;
     }).join("") + `</tbody>`;
 }
 
@@ -757,12 +1320,12 @@ function renderGuard(d) {
     const cats = [];
     for (const [verdict, label] of [["deny", "denied"], ["ask", "parked"]]) for (const [c, n] of Object.entries(d.guard.by_category?.[verdict] || {})) cats.push([c, n, label]);
     cats.sort((a, b) => b[1] - a[1]); const max = cats[0]?.[1] || 1;
-    $("#guard-cats").innerHTML = cats.length ? `<h2 style="font-size:13px">What it stopped</h2>` + cats.map(([c, n, l]) => `<div class="brow"><span class="k">${esc(c)}</span>
-      <div class="track"><div class="fill" style="width:${(n / max * 100).toFixed(1)}%;background:${l === "denied" ? "var(--critical-mark)" : "var(--warn-mark)"}"></div></div>
+    $("#guard-cats").innerHTML = cats.length ? `<h2 style="font-size:13px">What it stopped</h2>` + cats.map(([c, n, l], i) => `<div class="brow"><span class="k">${esc(c)}</span>
+      <div class="track"><div class="fill" style="--i:${Math.min(i, 10)};width:${(n / max * 100).toFixed(1)}%;background:${l === "denied" ? "var(--critical-mark)" : "var(--warn-mark)"}"></div></div>
       <span class="v">${fmtN(n)} ${l}</span></div>`).join("") : "";
   }
   const den = d.guard.recent_denials || [];
-  $("#denials").innerHTML = den.length ? den.map((x) => `<div class="den"><div class="top"><span class="mono">${esc(x.task)}</span><span class="chip">${esc(x.category || "?")}</span><span>${esc(x.tool)}</span><span>${when(x.ts)}</span></div><div class="reason">${esc(x.reason)}</div></div>`).join("")
+  $("#denials").innerHTML = den.length ? den.map((x, i) => `<div class="den" style="--i:${Math.min(i, 10)}"><div class="top">${TASK_ID.test(String(x.task)) ? `<button class="linkbtn mono" type="button" data-timeline="${esc(x.task)}" title="Open its timeline">${esc(x.task)}</button>` : `<span class="mono">${esc(x.task)}</span>`}<span class="chip">${esc(x.category || "?")}</span><span>${esc(x.tool)}</span><span>${when(x.ts)}</span></div><div class="reason">${esc(x.reason)}</div></div>`).join("")
     : `<div class="empty">The guard denied nothing in this period.</div>`;
 }
 
@@ -781,17 +1344,18 @@ document.addEventListener("click", async (e) => {
   if (el.dataset.copy) { try { await navigator.clipboard.writeText(el.dataset.copy); toast("Copied: " + el.dataset.copy); } catch { toast(el.dataset.copy); } }
   else if (el.dataset.metric) { ui.metric = el.dataset.metric; setPressed("[data-metric]", "metric", ui.metric); renderChart(data || exampleSnapshot(ui.days)); }
   else if (el.dataset.filter) { ui.filter = el.dataset.filter; store.set("filter", ui.filter); setPressed("[data-filter]", "filter", ui.filter); renderQueue(data || exampleSnapshot(ui.days)); }
-  else if (el.dataset.report) openReport(el.dataset.report);
+  else if (el.dataset.report) openTask(el.dataset.report, "report");
+  else if (el.dataset.timeline) openTask(el.dataset.timeline, "timeline");
+  else if (el.dataset.view) { if (!el.disabled && el.dataset.view !== reader.view) showView(el.dataset.view); }
+  else if (el.dataset.tl) { reader.filter = el.dataset.tl; renderTimeline($("#reader-body"), reader.cache.timeline, true); }
   else if (el.dataset.open) { decisions[el.dataset.key] = { open: el.dataset.open }; renderAttention(data || exampleSnapshot(ui.days)); document.getElementById(`reason-${el.dataset.key.replace("/", "-")}`)?.focus(); }
   else if (el.dataset.cancel) { delete decisions[el.dataset.cancel]; renderAttention(data || exampleSnapshot(ui.days)); }
   else if (el.dataset.decide) decide(el.dataset.decide, el.dataset.task, el.dataset.aid);
-  else if (el.dataset.act === "settings") toggleSettings(true);
+  else if (el.dataset.act === "settings") go("setup");
   else if (el.dataset.act === "refresh") load();
   else if (el.dataset.copyFrom) { const inp = document.getElementById(el.dataset.copyFrom); try { await navigator.clipboard.writeText(inp.value); toast("Copied"); } catch { inp.select(); toast("Selected: press Cmd+C"); } }
 });
 document.addEventListener("input", (e) => { const k = e.target?.dataset?.reason; if (k && decisions[k]) decisions[k].reason = e.target.value; });
-function toggleSettings(open) { const s = $("#settings"); s.hidden = open === undefined ? !s.hidden : !open; $("#settings-btn").setAttribute("aria-expanded", String(!s.hidden)); renderSettings(); }
-$("#settings-btn").onclick = () => toggleSettings();
 $("#tray-btn").onclick = () => enableTray();
 $("#perm-btn").onclick = () => desktop?.permissions.manage().catch((e) => toast(e.message));
 $("#refresh").onclick = () => { if (mcp) load(); else render(); };
@@ -800,13 +1364,19 @@ $("#group-by").onchange = () => { ui.by = $("#group-by").value; store.set("by", 
 $("#days").value = String(ui.days);
 $("#days").onchange = () => { ui.days = Number($("#days").value); store.set("days", ui.days); if (source === "live") load(); else render(); };
 setPressed("[data-filter]", "filter", ui.filter);
-let resizeTimer; new ResizeObserver(() => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => renderChart(data || exampleSnapshot(ui.days)), 80); }).observe($("#chart"));
+// redraw only when the width really changed, so a resize never restarts the bars' entrance
+let resizeTimer; const charts = new ResizeObserver(() => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => {
+  const w = $("#chart").clientWidth; if (w && w !== lastChartW) renderChart(snap());
+  const c = $("#cache-chart").clientWidth; if (c && c !== lastCacheW) renderCache(snap());
+}, 80); });
+charts.observe($("#chart")); charts.observe($("#cache-chart"));
 
 let timer;
 function startTimer() { clearInterval(timer); timer = setInterval(() => { if (document.visibilityState === "visible" || trayOn) load(); }, REFRESH_MS); }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && source === "live") load(); });
 
 render();
+{ const h = location.hash.slice(1); show(PAGES.includes(h) ? h : store.get("page", "overview")); }
 
 // ---------- boot ----------
 (async () => {

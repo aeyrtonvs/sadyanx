@@ -1,11 +1,12 @@
-"""`sadyanx mcp`: a local MCP server (stdio) with three tools, for the desktop dashboard.
+"""`sadyanx mcp`: a local MCP server (stdio) with five tools, for the desktop dashboard.
 
 The dashboard runs inside the Claude desktop app, which can call MCP servers configured on
 this Mac (`host:sadyanx`). That is a much narrower door than letting the page run programs:
-these three tools are all it can reach.
+these five tools are all it can reach.
 
   status   the snapshot `sadyanx status --json` prints (read-only)
   report   a task's report, runs/<task>/report.md (read-only)
+  timeline a task's events, agent calls, approvals and denials: `sadyanx log <task> --json` (read-only)
   approve  `sadyanx approve <task> <approval>`: one named approval, never --all
   reject   `sadyanx reject <task> <approval> [--reason ...]`
 
@@ -55,6 +56,16 @@ TOOLS = [
         "title": "A task's report",
         "description": "The Markdown report of one task (runs/<task>/report.md): what was done, the "
                        "acceptance criteria with their evidence, gates, reviews and CI. Changes nothing.",
+        "inputSchema": {"type": "object", "properties": {"task": dict(_ID_PROPS["task"])}, "required": ["task"],
+                        "additionalProperties": False},
+        "annotations": {"readOnlyHint": True, "openWorldHint": False},
+    },
+    {
+        "name": "timeline",
+        "title": "A task's timeline",
+        "description": "Everything that happened to one task, in order (`sadyanx log <task> --json`): the "
+                       "runner's events, each agent call with its tokens and cost, approvals and how they were "
+                       "decided, and what the guard denied. Changes nothing.",
         "inputSchema": {"type": "object", "properties": {"task": dict(_ID_PROPS["task"])}, "required": ["task"],
                         "additionalProperties": False},
         "annotations": {"readOnlyHint": True, "openWorldHint": False},
@@ -134,13 +145,20 @@ def call(name: str, arguments: dict, env: dict, run=subprocess.run) -> str:
         except json.JSONDecodeError:
             raise ToolError("sadyanx status did not print JSON: " + out.strip()[:200]) from None
         return out
-    if name == "report":
+    if name in ("report", "timeline"):
         if set(args) - {"task"}:
             raise ToolError("unexpected arguments: " + ", ".join(sorted(set(args) - {"task"})))
         task = args.get("task")
         if not isinstance(task, str) or not TASK_ID.fullmatch(task):
             raise ToolError("task must be a task id such as 0005")
-        return _report(task)
+        if name == "report":
+            return _report(task)
+        out = _cli(["log", task, "--json"], timeout=60, run=run)
+        try:
+            json.loads(out)
+        except json.JSONDecodeError:
+            raise ToolError("sadyanx log did not print JSON: " + out.strip()[:200]) from None
+        return out
     if name in ("approve", "reject"):
         extra = set(args) - {"task", "approval"} - ({"reason"} if name == "reject" else set())
         if extra:
@@ -171,8 +189,8 @@ def handle(msg: dict, env: dict, run=subprocess.run) -> dict | None:
         result = {"protocolVersion": params.get("protocolVersion") or PROTOCOL_VERSION,
                   "capabilities": {"tools": {"listChanged": False}},
                   "serverInfo": {"name": "sadyanx", "version": "1"},
-                  "instructions": "Local control of the sadyanx harness for its dashboard: read the status, "
-                                  "approve or reject one parked action."}
+                  "instructions": "Local control of the sadyanx harness for its dashboard: read the status, a "
+                                  "task's report or timeline, approve or reject one parked action."}
     elif method == "ping":
         result = {}
     elif method == "tools/list":

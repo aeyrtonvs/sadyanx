@@ -114,6 +114,74 @@ class TestStatus(unittest.TestCase):
             self.assertIn("kill switch", err.getvalue())
         self.assertEqual([i["id"] for i in approvals.pending(paths.run_dir(self.parked.id))], [aid])
 
+    def test_spend_against_budget_and_peers(self):
+        def row(tid, cost, status_="done", run="autonomous", budget=10.0, mode="smart", type_="code"):
+            return {"id": tid, "status": status_, "type": type_, "mode": mode, "cost_usd": cost,
+                    "budget_usd": budget, "run": run}
+        rows = [row("1", 1.0), row("2", 1.2), row("3", 1.4), row("4", 1.6),
+                row("5", 3.5, "running"),                    # 2.9x the median of four finished peers
+                row("6", 8.5, "running"),                    # past 80% of its own budget
+                row("7", 9.5, "running", run="supervised"),  # no dollar cap while you watch
+                row("8", 0.4, "running"),                    # 2x the median, but under a dollar
+                row("9", 3.0, mode="cheap"),                 # no peers of its mode
+                row("10", 0.0, "ready", run="")]             # never ran
+        status.spend(rows)
+        by = {r["id"]: r for r in rows}
+        self.assertEqual((by["5"]["cost_flag"], by["5"]["peer_median_usd"], by["5"]["peers"]), ("peers", 1.3, 4))
+        self.assertEqual((by["6"]["cost_flag"], by["6"]["budget_used"]), ("budget", 0.85))
+        self.assertIsNone(by["7"]["budget_used"])
+        self.assertEqual(by["7"]["cost_flag"], "peers")  # still far above its peers
+        self.assertEqual(by["8"]["cost_flag"], "")
+        self.assertEqual((by["9"]["cost_flag"], by["9"]["peer_median_usd"]), ("", None))
+        self.assertEqual((by["10"]["cost_flag"], by["10"]["budget_used"]), ("", 0.0))
+        self.assertEqual(by["1"]["peers"], 3)  # a task is never its own peer
+
+    def test_run_kind_comes_from_the_last_guard_context(self):
+        self.assertEqual(status.run_kind(self.done.id), "")
+        d = paths.run_dir(self.done.id)
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "guard.json").write_text(json.dumps({"interactive": True}))
+        self.assertEqual(status.run_kind(self.done.id), "supervised")
+        (d / "guard.json").write_text(json.dumps({"interactive": False}))
+        self.assertEqual(status.run_kind(self.done.id), "autonomous")
+        (d / "guard.json").write_text("not json")
+        self.assertEqual(status.run_kind(self.done.id), "")
+        row = next(r for r in status.snapshot(30)["tasks"] if r["id"] == self.done.id)
+        self.assertIn("cost_flag", row)
+        self.assertIn("weekly", status.snapshot(30))
+
+    def test_weekly_compares_the_last_seven_days_with_the_seven_before(self):
+        import datetime as dt
+        now = dt.datetime(2026, 11, 26, 12, 0, 0)
+        ago = lambda days: (now - dt.timedelta(days=days)).isoformat()  # noqa: E731
+        tok = lambda n: {"input": 0, "output": n, "cache_read": 0, "cache_write": 0}  # noqa: E731
+        recs = [
+            {"ts": ago(30), "task": "A", "phase": "work", "tokens": tok(500)},   # older: counts for A only
+            {"ts": ago(2), "task": "A", "phase": "fix", "tokens": tok(100)},
+            {"ts": ago(3), "task": "B", "phase": "work", "tokens": tok(200)},
+            {"ts": ago(9), "task": "C", "phase": "work", "tokens": tok(300)},
+            {"ts": ago(10), "task": "C", "phase": "fix", "tokens": tok(50)},
+        ]
+        rows = [{"id": "A", "status": "done", "updated": ago(1)},
+                {"id": "B", "status": "done", "updated": ago(2)},
+                {"id": "C", "status": "done", "updated": ago(8)},
+                {"id": "D", "status": "failed", "updated": ago(1)},
+                {"id": "E", "status": "done", "updated": ago(20)}]
+        audit = [("A", {"ts": ago(1), "verdict": "deny"}), ("A", {"ts": ago(1), "verdict": "allow"}),
+                 ("C", {"ts": ago(8), "verdict": "deny"}), ("C", {"ts": ago(9), "verdict": "deny"})]
+        w = status.weekly(recs, rows, audit, now)
+        self.assertEqual(w["current"], {"tokens": 300, "finished": 2, "first_pass_pct": 50,
+                                        "tokens_per_finished": 400, "fix_calls": 1, "denials": 1})
+        self.assertEqual(w["previous"], {"tokens": 350, "finished": 1, "first_pass_pct": 0,
+                                         "tokens_per_finished": 350, "fix_calls": 1, "denials": 2})
+        empty = status.weekly([], [], [], now)["current"]
+        self.assertEqual((empty["first_pass_pct"], empty["tokens_per_finished"]), (None, None))
+
+    def test_render_names_spend_worth_a_look(self):
+        self.done.set(budget_usd=10, cost_usd=9)
+        self.done.save()
+        self.assertIn(f"$ {self.done.id} spent $9.00 of its $10.00 budget", status.render(30))
+
     def test_an_unknown_approval_id_is_refused(self):
         # the app always names the exact approval it showed; one decided meanwhile is not re-decided
         with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()) as err:

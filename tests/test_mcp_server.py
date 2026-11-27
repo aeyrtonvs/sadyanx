@@ -37,7 +37,8 @@ class TestMcpServer(unittest.TestCase):
         self.assertIsNone(mcp_server.handle({"jsonrpc": "2.0", "method": "notifications/initialized"}, {}))
         tools = {t["name"]: t for t in mcp_server.handle({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}, {})
                  ["result"]["tools"]}
-        self.assertEqual(set(tools), {"status", "report", "approve", "reject"})
+        self.assertEqual(set(tools), {"status", "report", "timeline", "approve", "reject"})
+        self.assertTrue(tools["timeline"]["annotations"]["readOnlyHint"])
         self.assertTrue(tools["report"]["annotations"]["readOnlyHint"])
         self.assertTrue(tools["status"]["annotations"]["readOnlyHint"])
         self.assertFalse(tools["approve"]["annotations"]["readOnlyHint"])  # the app asks before running it
@@ -53,6 +54,20 @@ class TestMcpServer(unittest.TestCase):
         for bad in (0, 400, "7", True, 2.5):
             with self.subTest(days=bad):
                 self.assertTrue(call("status", {"days": bad})[0])
+
+    def test_timeline_runs_the_log_command(self):
+        run = FakeRun(stdout='{"task": "0005", "events": []}')
+        self.assertEqual(call("timeline", {"task": "0005"}, run=run), (False, '{"task": "0005", "events": []}'))
+        self.assertEqual(run.calls[0][0][-3:], ["log", "0005", "--json"])
+        for bad in ({"task": "0005; id"}, {"task": "../0005"}, {}, {"task": "0005", "n": 9}):
+            with self.subTest(args=bad):
+                run = FakeRun()
+                self.assertTrue(call("timeline", bad, run=run)[0])
+                self.assertEqual(run.calls, [])
+        self.assertTrue(call("timeline", {"task": "0005"}, run=FakeRun(stdout="no events"))[0])
+        err, text = call("timeline", {"task": "0005"}, env={"SADYANX_TASK_ID": "0005"})
+        self.assertTrue(err)
+        self.assertIn("not available inside a sadyanx agent session", text)
 
     def test_status_must_be_json(self):
         err, text = call("status", {}, run=FakeRun(stdout="Sady: hi"))
