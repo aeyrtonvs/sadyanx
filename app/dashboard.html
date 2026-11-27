@@ -1,6 +1,6 @@
 <title>sadyanx</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<script type="application/json" id="claude-artifacts-manifest">{"permissions": ["full-access", "menu-bar"]}</script>
+<script type="application/json" id="claude-artifacts-manifest">{"permissions": ["menu-bar"]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -64,10 +64,8 @@ button { cursor: pointer; }
 a { color: var(--accent); }
 
 /* top bar */
-.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); app-region: drag; -webkit-app-region: drag; }
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
 .bar-in { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; min-height: 52px; }
-body.in-app .bar-in { padding-left: max(84px, env(safe-area-inset-left, 0px)); }
-.bar button, .bar select, .bar .pill { app-region: no-drag; -webkit-app-region: no-drag; }
 .brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
 .brand h1 { font-size: 20px; }
 .brand .sub { color: var(--ink-3); font-size: 12px; }
@@ -105,7 +103,15 @@ select.btn { padding-right: 6px; }
 .ask-top { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
 .ask-top .title { font-weight: 600; min-width: 0; }
 .ask pre { margin: 0; background: var(--sunken); border-radius: 6px; padding: 8px 10px; font-family: var(--font-data); font-size: 12px; white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto; }
-.ask .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.ask .acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.ask .acts .grow { flex: 1 1 200px; min-width: 0; }
+.ask .acts input { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; background: var(--bg); font-size: 13px; }
+.ask .confirm { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; }
+.ask .confirm p { margin: 0; color: var(--ink-2); }
+.ask .outcome { margin: 0; font-size: 13px; color: var(--ink-2); white-space: pre-wrap; word-break: break-word; }
+.ask .outcome.bad { color: var(--critical); }
+.btn.danger { background: var(--critical-mark); border-color: var(--critical-mark); color: #fff; }
+.btn.quiet { border-color: transparent; background: transparent; color: var(--ink-2); }
 .running { display: flex; flex-wrap: wrap; gap: 8px; }
 .voice { margin: 0; font-family: var(--font-display); font-size: 19px; line-height: 1.3; text-wrap: balance; color: var(--ink); }
 .voice .who { color: var(--accent); }
@@ -214,12 +220,9 @@ td .links { display: flex; gap: 8px; flex-wrap: wrap; }
   <section class="panel settings" id="settings" hidden>
     <div class="panel-head"><h2>Settings</h2></div>
     <div class="field">
-      <label for="bin">sadyanx command</label>
-      <div class="row">
-        <input id="bin" type="text" spellcheck="false" autocomplete="off">
-        <button class="btn" id="bin-save" type="button">Save</button>
-      </div>
-      <span class="help">Run through your login shell as <code>&lt;command&gt; status --json --days N</code>. The default is where <code>sadyanx install</code> links it.</span>
+      <label>Connection</label>
+      <span class="help">This app talks to sadyanx through its local MCP server, which offers three tools and nothing else: <code>status</code>, <code>approve</code> and <code>reject</code>. Register it once in the Claude app: <strong>Settings → Developer → Edit Config</strong>, add under <code>"mcpServers"</code> the entry this command prints, then quit and reopen the Claude app:</span>
+      <div class="row"><input id="setup-cmd" type="text" readonly value="~/.local/bin/sadyanx mcp --config" aria-label="Setup command"><button class="btn" type="button" data-copy-from="setup-cmd">Copy</button></div>
     </div>
     <div class="field">
       <label>Menu bar</label>
@@ -292,11 +295,10 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem("sadyanx." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem("sadyanx." + k, JSON.stringify(v)); } catch {} },
 };
-const DEFAULT_BIN = "~/.local/bin/sadyanx";
 const REFRESH_MS = 60_000;
 
 const ui = { metric: "tokens", by: "mode", filter: store.get("filter", "all"), days: store.get("days", 30) };
-let data = null, source = "example", error = "", desktop = null, trayOn = false, busy = false;
+let data = null, source = "example", error = "", desktop = null, mcp = null, trayOn = false, busy = false, lastCode = "";
 
 // ---------- formatting ----------
 const fmtN = (n) => { n = Number(n) || 0; const a = Math.abs(n);
@@ -348,24 +350,31 @@ function exampleSnapshot(days) {
   };
 }
 
-// ---------- desktop ----------
-const shq = (s) => "'" + String(s).replace(/'/g, "'\\''") + "'";
-function command() {
-  const bin = (store.get("bin", DEFAULT_BIN) || DEFAULT_BIN).trim();
-  const days = [7, 30, 90].includes(Number(ui.days)) ? Number(ui.days) : 30;
-  return `/bin/zsh -lc ${shq(`${bin} status --json --days ${days}`)}`;
-}
+// ---------- the sadyanx MCP server (host:sadyanx) ----------
+const SERVER = "host:sadyanx";
+// what each failure means for this page, and what fixes it
+const MCP_STATE = {
+  server_not_connected: "setup", server_not_found: "setup", selection_required: "setup",
+  not_in_manifest: "denied", approval_required: "connect", consent_required: "connect",
+  blocked_by_policy: "blocked", not_granted: "outside", capability_disabled: "outside", capability_removed: "outside",
+};
+const toolText = (e) => { const c = e?.result?.content; return Array.isArray(c) && c[0]?.text ? String(c[0].text) : String(e?.message || e); };
 
 async function load() {
-  if (!desktop?.childProcess || busy) return;
+  if (!mcp || busy) return;
   busy = true; $("#refresh").disabled = true; $("#refresh").textContent = "Refreshing…";
   try {
-    const r = await desktop.childProcess.exec(command(), { timeout: 90_000 });
-    if (r.code !== 0) throw new Error((r.stderr || r.stdout || "").trim().slice(-600) || `exit code ${r.code}`);
-    if (r.truncated) throw new Error("the status output was cut short");
-    data = JSON.parse(r.stdout); source = "live"; error = "";
+    const days = [7, 30, 90].includes(Number(ui.days)) ? Number(ui.days) : 30;
+    const r = await mcp.callTool(SERVER, "status", { days }, { cache: false });
+    const snap = typeof r.payload === "string" ? JSON.parse(r.payload) : r.payload;
+    if (!snap || !Array.isArray(snap.tasks)) throw { code: "tool_error", message: "the status tool answered something unexpected" };
+    data = snap; source = "live"; error = ""; gateMode = "none";
   } catch (e) {
-    error = String(e?.message || e);
+    lastCode = String(e?.code || "");
+    const mode = MCP_STATE[e?.code];
+    if (mode && source !== "live") { gateMode = mode; error = ""; }
+    else if (mode) { gateMode = mode; error = toolText(e); }
+    else error = toolText(e);
   } finally {
     busy = false; $("#refresh").disabled = false; $("#refresh").textContent = "Refresh";
   }
@@ -409,10 +418,6 @@ async function enableTray() {
   } catch (e) { toast("Menu bar: " + e.message); }
 }
 
-async function openReport(rel) {
-  if (!desktop?.shell || !data?.root || !rel) return;
-  try { await desktop.shell.openPath(`${data.root}/${rel}`); } catch (e) { toast("Could not open the report: " + e.message); }
-}
 
 // ---------- rendering ----------
 function setPressed(sel, attr, val) { document.querySelectorAll(sel).forEach((b) => b.setAttribute("aria-pressed", String(b.dataset[attr] === val))); }
@@ -428,7 +433,7 @@ function render() {
 function renderGate() {
   const g = $("#gate");
   if (error) {
-    g.innerHTML = `<div class="notice error"><p><strong>sadyanx did not answer.</strong> Check the command in Settings, or run it in a terminal to see the problem. The numbers below are from the last good refresh${source === "live" ? "" : " (example data)"}.</p><button class="btn" type="button" data-act="settings">Open settings</button><pre></pre></div>`;
+    g.innerHTML = `<div class="notice error"><p><strong>sadyanx did not answer.</strong> Run <code>sadyanx status</code> in a terminal to see the problem. The numbers below are from the last good refresh${source === "live" ? "" : " (example data)"}.</p><button class="btn" type="button" data-act="refresh">Try again</button><pre></pre></div>`;
     g.querySelector("pre").textContent = error; return;
   }
   if (source === "live") { g.innerHTML = ""; return; }
@@ -442,17 +447,21 @@ async function gateAction() {
   const add = (label, fn, primary = true) => { const b = document.createElement("button"); b.type = "button"; b.className = "btn" + (primary ? " primary" : ""); b.textContent = label; b.onclick = fn; box.appendChild(b); };
   const text = $("#gate-text");
   if (gateMode === "connect") {
-    text.innerHTML = "<strong>Connect to sadyanx.</strong> The app reads your harness by running <code>sadyanx status --json</code>, which needs permission to run programs on this Mac. It only reads: it never approves, runs or stops anything.";
-    add("Connect", async () => { try { const st = await desktop.permissions.request(["full-access"]); if (st["full-access"] === "granted") { gateMode = "none"; load(); startTimer(); } else { gateMode = st["full-access"] === "denied" ? "denied" : "unavailable"; render(); } } catch (e) { toast(e.message); } });
+    text.innerHTML = "<strong>Connect to sadyanx.</strong> The app reads your harness through the sadyanx MCP server on this Mac. It can read the status, and approve or reject an action you confirm on screen; nothing else.";
+    add("Connect", async () => { await load(); if (source === "live") startTimer(); });
+  } else if (gateMode === "setup") {
+    text.innerHTML = "<strong>The sadyanx MCP server is not running in this Claude app.</strong> Register it once (Settings shows the command), then quit and reopen the Claude app. <span class=\"stamp\"></span>";
+    text.querySelector(".stamp").textContent = `(Claude answered: ${lastCode || "no code"}; this view is ${desktop?.app ? "the installed app" : "a Claude window"})`;
+    add("Show setup", () => toggleSettings(true)); add("Try again", () => load(), false);
   } else if (gateMode === "denied") {
-    text.innerHTML = "<strong>Running programs is turned off for this app,</strong> so it can only show example data. Turn it on in Permissions.";
-    add("Permissions", () => desktop.permissions.manage().catch((e) => toast(e.message)));
-  } else if (gateMode === "unavailable") {
-    text.innerHTML = "<strong>This app may not run programs here.</strong> Running programs is allowed only for your own artifact, opened in the Claude desktop app under the same organization it was published in.";
+    text.innerHTML = "<strong>This app is not allowed to use the sadyanx server.</strong> Allow it in the artifact's Permissions.";
+    add("Try again", () => load());
+  } else if (gateMode === "blocked") {
+    text.innerHTML = "<strong>Your organization blocks this MCP server for artifacts.</strong> The dashboard can only show example data here; <code>sadyanx status</code> and /task keep working.";
   } else if (gateMode === "install") {
     add("Install as app", () => desktop.install.request().catch((e) => toast(e.message)));
-  } else if (gateMode === "elsewhere") {
-    text.innerHTML += " Install it from the Claude desktop app.";
+  } else {
+    text.innerHTML += " Open it in the Claude desktop app (installed as an app or beside a chat).";
   }
 }
 
@@ -463,13 +472,67 @@ function renderAttention(d) {
   const running = d.tasks.filter((t) => d.running.includes(t.id));
   if (d.persona?.line) parts.unshift(`<p class="voice"><span class="who">${esc(d.persona.name)}:</span> ${esc(d.persona.line)}</p>`);
   parts.push(`<div class="attn-head"><h2>Waiting for you</h2><span class="quiet">${asks.length ? `${asks.length} action${asks.length > 1 ? "s" : ""} parked until you decide` : "Nothing is waiting for your approval."}</span></div>`);
+  const why = canDecide() ? "" : source === "live" ? "The kill switch is on: clear it with sadyanx unkill to decide."
+    : { connect: "Press Connect at the top to decide from here.",
+        setup: "Set up the sadyanx MCP server to decide from here (Settings).",
+        denied: "This app may not use the sadyanx server: allow it in Permissions.",
+        blocked: "Your organization blocks the sadyanx server here.",
+      }[gateMode] || "Example data: open this in the Claude desktop app to decide.";
   for (const [t, p] of asks) {
-    parts.push(`<article class="ask"><div class="ask-top"><span class="pill warn">${esc(p.category || "approval")}</span><span class="mono">${esc(t.id)}</span><span class="title">${esc(t.title)}</span><span class="stamp">${when(p.created)}</span></div>
-      <pre>${esc(p.text)}</pre>
-      <div class="acts"><button class="btn" type="button" data-copy="${esc(`sadyanx approve ${t.id} ${p.id}`)}">Copy approve command</button><button class="btn" type="button" data-copy="${esc(`sadyanx reject ${t.id} ${p.id}`)}">Copy reject command</button></div></article>`);
+    const key = `${t.id}/${p.id}`; const st = decisions[key] || {};
+    let foot;
+    if (st.busy) foot = `<p class="outcome">${st.verb === "approve" ? "Approving" : "Rejecting"}… the harness carries it out and resumes the task.</p>`;
+    else if (st.open === "approve") foot = `<div class="confirm"><p>Approve exactly the action above? The harness runs it once and task ${esc(t.id)} resumes in the background.</p>
+      <div class="acts"><button class="btn primary" type="button" data-decide="approve" data-task="${esc(t.id)}" data-aid="${esc(p.id)}">Approve and resume</button><button class="btn quiet" type="button" data-cancel="${esc(key)}">Cancel</button></div></div>`;
+    else if (st.open === "reject") foot = `<div class="confirm"><p>Reject it? The action does not run; the agent is told why and carries on without it.</p>
+      <div class="acts"><span class="grow"><input id="reason-${esc(t.id)}-${esc(p.id)}" data-reason="${esc(key)}" value="${esc(st.reason || "")}" type="text" placeholder="Reason for the agent (optional), e.g. not on a Friday" maxlength="300" aria-label="Reason"></span>
+      <button class="btn danger" type="button" data-decide="reject" data-task="${esc(t.id)}" data-aid="${esc(p.id)}">Reject</button><button class="btn quiet" type="button" data-cancel="${esc(key)}">Cancel</button></div></div>`;
+    else foot = `<div class="acts"><button class="btn primary" type="button" data-open="approve" data-key="${esc(key)}"${why ? " disabled" : ""}>Approve…</button>
+      <button class="btn" type="button" data-open="reject" data-key="${esc(key)}"${why ? " disabled" : ""}>Reject…</button>
+      <button class="btn quiet" type="button" data-copy="${esc(`sadyanx approve ${t.id} ${p.id}`)}">Copy command</button>${why ? `<span class="stamp">${esc(why)}</span>` : ""}</div>`;
+    const err = st.error ? `<p class="outcome bad"></p>` : "";
+    parts.push(`<article class="ask" data-ask="${esc(key)}"><div class="ask-top"><span class="pill warn">${esc(p.category || "approval")}</span><span class="mono">${esc(t.id)}</span><span class="title">${esc(t.title)}</span><span class="stamp">${when(p.created)}</span></div>
+      <pre>${esc(p.text)}</pre>${err}${foot}</article>`);
   }
+  for (const [key, st] of Object.entries(decisions)) if (st.done) parts.push(`<p class="outcome" data-done="${esc(key)}"></p>`);
   if (running.length) parts.push(`<div class="running">${running.map((t) => `<span class="pill live">running · ${esc(t.id)} ${esc(t.phase || "")}</span>`).join("")}</div>`);
   a.innerHTML = parts.join("");
+  // CLI output is text, never markup
+  for (const [key, st] of Object.entries(decisions)) {
+    if (st.error) { const el = a.querySelector(`[data-ask="${CSS.escape(key)}"] .outcome.bad`); if (el) el.textContent = st.error; }
+    if (st.done) { const el = a.querySelector(`[data-done="${CSS.escape(key)}"]`); if (el) el.textContent = st.done; }
+  }
+}
+
+// ---------- approve / reject ----------
+const decisions = {}; // "<task>/<approval id>" -> {open, busy, verb, error, done}
+const canDecide = () => source === "live" && !!mcp && !data?.kill_switch;
+const TASK_ID = /^[A-Za-z0-9_-]{1,16}$/, APPROVAL_ID = /^[0-9a-f]{8}$/;
+
+async function decide(verb, task, aid) {
+  // the ids come from `sadyanx status`; check their shape anyway before they reach a shell
+  if (!["approve", "reject"].includes(verb) || !TASK_ID.test(task) || !APPROVAL_ID.test(aid) || !canDecide()) return;
+  const key = `${task}/${aid}`;
+  const reason = verb === "reject" ? String(decisions[key]?.reason || "").trim().slice(0, 300) : "";
+  decisions[key] = { busy: true, verb };
+  render();
+  const input = { task, approval: aid, ...(reason ? { reason } : {}) };
+  try {
+    // a write: called once, from this click, never retried. The Claude app may ask you to confirm it too.
+    const r = await mcp.callTool(SERVER, verb, input);
+    const out = String(typeof r.payload === "string" ? r.payload : r.content?.[0]?.text || "").trim();
+    const last = out.split("\n").filter(Boolean).slice(-2).join("\n");
+    decisions[key] = { done: (last || `${task}: ${verb === "approve" ? "approved" : "rejected"}`).slice(0, 600) };
+    setTimeout(() => { delete decisions[key]; renderAttention(data || exampleSnapshot(ui.days)); }, 90_000);
+    toast(verb === "approve" ? `Approved ${task}` : `Rejected ${task}`);
+  } catch (e) {
+    const what = verb === "approve" ? "approved" : "rejected";
+    const why = e?.code === "cancelled" ? "you declined it in the Claude app."
+      : ["server_unavailable", "upstream_error"].includes(e?.code) ? `the answer got lost (${e.code}). It may have run: check the queue below before trying again.`
+      : toolText(e);
+    decisions[key] = { error: `Not ${what}: ${why}` };
+  }
+  await load();
 }
 
 function renderKpis(d) {
@@ -543,13 +606,11 @@ const STATUS = { done: "good", running: "live", verifying: "live", "needs-approv
 function renderQueue(d) {
   const rows = d.tasks.filter((t) => ui.filter === "all" || t.status !== "done");
   if (!rows.length) { $("#queue").innerHTML = `<tbody><tr><td class="empty">${ui.filter === "all" ? "No tasks yet. Create one with /task." : "Every task is done."}</td></tr></tbody>`; return; }
-  const live = source === "live";
   $("#queue").innerHTML = `<thead><tr><th>ID</th><th>Status</th><th>Task</th><th>Repo</th><th>Mode</th><th class="r">Tries</th><th class="r">Cost</th><th>Updated</th><th>Open</th></tr></thead><tbody>` +
     rows.map((t) => {
       const links = [];
       if (safeUrl(t.pr_url)) links.push(`<a href="${esc(t.pr_url)}" target="_blank" rel="noopener">PR</a>`);
       if (safeUrl(t.doc_url)) links.push(`<a href="${esc(t.doc_url)}" target="_blank" rel="noopener">Doc</a>`);
-      if (live && t.report) links.push(`<button class="linkbtn" type="button" data-report="${esc(t.report)}">Report</button>`);
       const why = t.reason && t.status !== "done" ? `<div class="why">${esc(t.reason)}</div>` : "";
       return `<tr><td class="mono">${esc(t.id)}</td><td><span class="pill ${STATUS[t.status] ?? ""}">${esc(t.status)}</span></td>
         <td class="t"><div class="ttl">${esc(t.title)}</div>${why}</td><td>${esc(t.repo || (t.type === "research" ? "research" : "–"))}</td>
@@ -579,9 +640,8 @@ function renderGuard(d) {
 }
 
 function renderSettings() {
-  $("#bin").value = store.get("bin", DEFAULT_BIN);
-  const app = !!desktop?.childProcess;
-  $("#bin-save").disabled = !app; $("#tray-btn").disabled = !app || trayOn; $("#perm-btn").disabled = !app;
+  const app = !!desktop?.tray;
+  $("#tray-btn").disabled = !app || trayOn; $("#perm-btn").disabled = !app;
   $("#tray-btn").textContent = trayOn ? "Shown in the menu bar" : "Show approvals in the menu bar";
 }
 
@@ -595,15 +655,19 @@ document.addEventListener("click", async (e) => {
   else if (el.dataset.metric) { ui.metric = el.dataset.metric; setPressed("[data-metric]", "metric", ui.metric); renderChart(data || exampleSnapshot(ui.days)); }
   else if (el.dataset.by) { ui.by = el.dataset.by; setPressed("[data-by]", "by", ui.by); renderBreakdown(data || exampleSnapshot(ui.days)); }
   else if (el.dataset.filter) { ui.filter = el.dataset.filter; store.set("filter", ui.filter); setPressed("[data-filter]", "filter", ui.filter); renderQueue(data || exampleSnapshot(ui.days)); }
-  else if (el.dataset.report) openReport(el.dataset.report);
+  else if (el.dataset.open) { decisions[el.dataset.key] = { open: el.dataset.open }; renderAttention(data || exampleSnapshot(ui.days)); document.getElementById(`reason-${el.dataset.key.replace("/", "-")}`)?.focus(); }
+  else if (el.dataset.cancel) { delete decisions[el.dataset.cancel]; renderAttention(data || exampleSnapshot(ui.days)); }
+  else if (el.dataset.decide) decide(el.dataset.decide, el.dataset.task, el.dataset.aid);
   else if (el.dataset.act === "settings") toggleSettings(true);
+  else if (el.dataset.act === "refresh") load();
+  else if (el.dataset.copyFrom) { const inp = document.getElementById(el.dataset.copyFrom); try { await navigator.clipboard.writeText(inp.value); toast("Copied"); } catch { inp.select(); toast("Selected: press Cmd+C"); } }
 });
+document.addEventListener("input", (e) => { const k = e.target?.dataset?.reason; if (k && decisions[k]) decisions[k].reason = e.target.value; });
 function toggleSettings(open) { const s = $("#settings"); s.hidden = open === undefined ? !s.hidden : !open; $("#settings-btn").setAttribute("aria-expanded", String(!s.hidden)); renderSettings(); }
 $("#settings-btn").onclick = () => toggleSettings();
-$("#bin-save").onclick = () => { const v = $("#bin").value.trim() || DEFAULT_BIN; store.set("bin", v); toast("Saved"); load(); };
 $("#tray-btn").onclick = () => enableTray();
 $("#perm-btn").onclick = () => desktop?.permissions.manage().catch((e) => toast(e.message));
-$("#refresh").onclick = () => { if (desktop?.childProcess && source === "live") load(); else render(); };
+$("#refresh").onclick = () => { if (mcp) load(); else render(); };
 $("#days").value = String(ui.days);
 $("#days").onchange = () => { ui.days = Number($("#days").value); store.set("days", ui.days); if (source === "live") load(); else render(); };
 setPressed("[data-filter]", "filter", ui.filter);
@@ -617,20 +681,24 @@ render();
 
 // ---------- boot ----------
 (async () => {
-  desktop = window.claude?.use ? await window.claude.use("desktop").catch(() => null) : null;
-  if (!desktop?.fs) {
-    try { gateMode = desktop?.install && (await desktop.install.state()) === "available" ? "install" : "elsewhere"; } catch { gateMode = "elsewhere"; }
+  const use = (n) => window.claude?.use ? window.claude.use(n).catch(() => null) : Promise.resolve(null);
+  [desktop, mcp] = await Promise.all([use("desktop"), use("mcp")]);
+  if (desktop?.app) {  // installed as an app: its icon, window and menu bar item
+    desktop.app.dock.setIcon(drawIcon(256, false)).catch(() => {});
+    // a normal title bar: a hidden one comes with a drag strip on top that swallows clicks.
+    // Always the same options, so the window is rebuilt once (from the old ones) and never again.
+    await desktop.window.setOptions({ titleBarStyle: "default", minWidth: 420, minHeight: 480 }).catch(() => {});
+    try { const st = await desktop.permissions.state("menu-bar"); if (st === "granted" && store.get("tray", false)) trayOn = true; } catch {}
+  }
+  renderSettings();
+  if (!mcp) {
+    try { gateMode = desktop?.install && (await desktop.install.state()) === "available" ? "install" : "outside"; } catch { gateMode = "outside"; }
     render(); return;
   }
-  document.body.classList.add("in-app");
-  desktop.app.dock.setIcon(drawIcon(256, false)).catch(() => {});
-  const want = { titleBarStyle: "hiddenInset", dragHeight: 52, minWidth: 420, minHeight: 480 };
-  try { const { applied } = await desktop.window.getOptions(); if (!Object.entries(want).every(([k, v]) => applied?.[k] === v)) await desktop.window.setOptions(want); } catch {}
-  let st = {};
-  try { st = await desktop.permissions.state(); } catch {}
-  if (st["menu-bar"] === "granted" && store.get("tray", false)) trayOn = true;
-  if (st["full-access"] === "granted") { gateMode = "none"; await load(); startTimer(); }
-  else { gateMode = st["full-access"] === "denied" ? "denied" : st["full-access"] === "prompt" ? "connect" : "unavailable"; render(); }
-  renderSettings();
+  // the first call asks you to allow the server for this app; only call on load once it is allowed
+  const perms = await use("permissions");
+  const st = perms ? await perms.state("mcp:" + SERVER).catch(() => "unavailable") : "prompt";
+  if (st === "granted") { await load(); startTimer(); }
+  else { gateMode = st === "denied" ? "denied" : "connect"; render(); }
 })();
 </script>

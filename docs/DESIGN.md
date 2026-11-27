@@ -422,29 +422,44 @@ arrive as a Slack message, and the answer goes back there. Decided with me 2026-
   tool is `mcp__claude_ai_Slack__slack_send_message`, and the audit shows `ToolSearch`, the pinned
   send and the result, nothing else. Not yet: a real task drafting its own reply.
 
-**D27 — A desktop dashboard that reads the harness through the CLI.** The terminal answers one
-question at a time; I want to see the queue, what waits for me and where the tokens go at a
-glance. `app/dashboard.html` is a claude.ai artifact with the `desktop` capability: installed from
-the Claude desktop app it is a Mac app with its own window, Dock badge and an optional menu bar
-item showing how many approvals wait.
-- **One source of truth.** The app runs `sadyanx status --json --days N` through a login shell
-  (`/bin/zsh -lc`, so the Python on my PATH is found) and never parses `tasks/` or `runs/`
-  itself. `status` bundles the queue, pending approvals, the kill switch, the guard's verdicts
-  (from `audit.jsonl`: totals, categories of what it stopped, the latest denials) and
-  `usage.summarize`, which now also has `by_day` and agent seconds. Like `list`, it first marks a
-  task whose runner is gone as `killed`.
-- **Read-only, on purpose.** v1 approves, rejects, runs and kills nothing: it copies the
-  `sadyanx approve|reject <task> <id>` command for me to run. Approving from a window is the next
-  step, and it will go through the same CLI so the guard and the approval files stay the only path.
-- **Permissions.** It asks for `full-access` (run programs) only from a click on "Connect", and
-  `menu-bar` only from Settings. Full access is allowed only on my own, unshared artifact; anyone
-  who could edit the artifact could run commands on this Mac, so it stays private and nobody
-  else gets edit access.
+**D27 — A desktop dashboard that reaches the harness through its own MCP server.** The terminal
+answers one question at a time; I want to see the queue, what waits for me and where the tokens
+go at a glance. `app/dashboard.html` is a claude.ai artifact: installed from the Claude desktop
+app it is a Mac app with its own window, Dock badge and an optional menu bar item showing how
+many approvals wait.
+- **Through `sadyanx mcp`, not a shell.** v1 used the `desktop` capability's full access (run
+  any program) to call the CLI. My organization does not allow full access for artifacts, for
+  good reason: a page that can run anything is a large door. Now `sadyanx mcp` is a local stdio
+  MCP server, registered once in the Claude desktop app's `claude_desktop_config.json` (the installed
+  app does not see Claude Code's `~/.claude.json`), and the page declares only `host:sadyanx` with three tools: `status`
+  (read-only), `approve` and `reject`. That is all the page can reach. Each call runs the CLI in
+  a fresh process with an argument list (no shell), so the CLI stays the single path to an
+  approval and code changes apply without restarting the server. Ids are checked against their
+  shape, `approve` never takes `--all`, and the Claude app may ask me to confirm the two writes.
+- **One source of truth.** `status` is `sadyanx status --json --days N`: the queue, pending
+  approvals, the kill switch, the guard's verdicts (from `audit.jsonl`: totals, categories of
+  what it stopped, the latest denials) and `usage.summarize`, which now also has `by_day` and
+  agent seconds. Like `list`, it first marks a task whose runner is gone as `killed`.
+- **Approve and reject, nothing else.** Each pending action shows its full text (a Slack reply
+  in full) with Approve… and Reject…; the second click, inside the card, calls the tool once
+  for the exact approval id it showed, so an action decided meanwhile is refused, never
+  re-decided. A lost answer is not retried: it may have run, so the page says to check the queue.
+- **Agents never reach it.** Registered for the user, the server is also loaded in agents'
+  sessions. The guard denies every tool of a server whose name contains `sadyanx`, before
+  `mcp_allow` and pins (`SADYANX_MCP_TOOL`), and the server refuses every call when its
+  environment shows a sadyanx agent session (`SADYANX_GUARD_CTX`, `SADYANX_TASK_ID`).
+- **Found on the way, both fixed.** `approve` carried out harness actions (push, open the PR,
+  send on Slack) with the kill switch on; now `approve` and `reject` refuse until `unkill`. And
+  an agent could run `sadyanx approve` on its own task through Bash (the CLI writes the approval
+  file itself, so no write rule saw it); now the CLI, `python bin/sadyanx` and Python importing
+  `sadyanxlib` are forbidden to agents. Python code an agent writes could still reach the
+  approval files outside the sandbox: see Known limits.
 - **Nothing of mine in the page.** The HTML is tracked in this public repo and carries no data:
-  everything comes from `status` at run time. Outside its desktop app (a browser, the artifact
-  panel) it shows marked example data and an install button.
-- **Rejected: a local web server** (another process to keep alive, a port to protect) and
-  **the `db` capability** (it would copy my tasks and usage to a server for no gain).
+  everything comes from `status` at run time. Outside the Claude desktop app (a browser) it
+  shows marked example data; an artifact keeps its owner-only, unshared access, since host
+  servers answer only its owner.
+- **Rejected:** full access (above), a local web server (another process to keep alive, a port
+  to protect) and the `db` capability (it would copy my tasks and usage to a server for no gain).
 
 **D28 — A persona, only where sadyanx talks to me.** The harness should feel like someone, not
 like a log. `config/persona.toml` (local; `persona.example.toml` ships and `install` copies it)
@@ -463,6 +478,9 @@ gives it a name, a voice and lines per event.
 - **Next:** the daily digest (Iteration 2) is where a model will write in this voice.
 
 ## Known limits
+
+- The guard reads commands, not what code does: an agent's own Python script could still edit
+  `runs/<id>/approvals.json` when the sandbox is off. The sandbox (D18) is what closes that.
 
 - `caffeinate` does not stop a laptop from sleeping when its lid is closed on battery. The run
   pauses until it wakes; if the network calls time out meanwhile the agent may fail, and

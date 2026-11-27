@@ -85,6 +85,8 @@ class Verdict:
 _GIT = r"git(?:\s+-[Cc]\s+\S+|\s+--[\w-]+(?:=\S+)?)*\s+"
 _ANY = r"[^\n]*"  # rest of a simple command
 
+_HARNESS_CLI = "agents do not run the harness itself: approvals, runs and the kill switch are your user's"
+
 FORBIDDEN_CMD: list[tuple[str, str]] = [
     (r"(?:sudo|doas|su)\b", "sudo/su are not allowed"),
     (_GIT + r"push\b", "agents do not push: the harness pushes the branch at the end, after verification"),
@@ -108,6 +110,11 @@ FORBIDDEN_CMD: list[tuple[str, str]] = [
     (r"(?:uv\s+tool|pipx)\s+(?:install|uninstall|upgrade)\b", "no global tool installs"),
     (r"gh\s+pr\s+create\b", "the harness opens the PR after verification; leave your commits on the branch"),
     (r"claude\b(?!" + _ANY + r"--version)", "no launching other Claude sessions or changing Claude's config"),
+    # the harness's own controls (approve, reject, run, kill, unkill...) belong to your user: an agent
+    # that ran them could approve its own parked action
+    (r"sadyanx(?:\s|$)", _HARNESS_CLI),
+    (r"python[\d.]*\s+(?:-\S+\s+)*\S*/sadyanx(?:\s|$)", _HARNESS_CLI),
+    (r"python[\d.]*\b" + _ANY + r"\bsadyanxlib\b", _HARNESS_CLI),
 ]
 
 GATED_CMD: list[tuple[str, str]] = [
@@ -219,6 +226,11 @@ DEFAULT_MCP_ALLOW = [
 # Sending (or scheduling) a Slack message as you. Agents never do it: a reply goes in the
 # result and the harness sends it after approval, in its own session, pinned to that exact call.
 SLACK_MESSAGE_TOOL = re.compile(r"^mcp__.*__slack_(?:send|schedule)_message$", re.I)
+
+# The harness's own MCP server (`sadyanx mcp`, for the dashboard) approves and rejects parked
+# actions. Registered for the user, it is also loaded in agents' sessions: none of its tools is
+# ever theirs, whatever name it was registered under and whatever mcp_allow says.
+SADYANX_MCP_TOOL = re.compile(r"^mcp__(?:(?!__).)*sadyanx(?:(?!__).)*__", re.I)
 
 HEREDOC = re.compile(r"<<-?[ \t]*(['\"]?)(\w+)\1([^\n]*)\n(.*?)\n[ \t]*\2[ \t]*(?=\n|$|\))", re.S)
 REDIRECT = re.compile(r"(?<![<\d&>])\d?>>?\|?\s*([^\s;&|<>()]+)")
@@ -548,6 +560,8 @@ def _same_input(given: dict, expected: dict) -> bool:
 
 
 def check_mcp(tool: str, ctx: Ctx, tool_input: dict | None = None) -> Verdict:
+    if SADYANX_MCP_TOOL.match(tool):
+        return Verdict(DENY, "forbidden", "the sadyanx MCP server is your user's control panel, not an agent's tool")
     for pin in ctx.pinned_calls:
         if re.fullmatch(str(pin.get("tool", "")), tool) and _same_input(tool_input or {}, pin.get("input") or {}):
             return Verdict(ALLOW, "pinned", "the exact call a human approved")

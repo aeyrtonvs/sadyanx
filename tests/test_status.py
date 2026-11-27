@@ -7,7 +7,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from sadyanxlib import approvals, paths, status, tasks  # noqa: E402
+import contextlib  # noqa: E402
+import io  # noqa: E402
+
+from sadyanxlib import approvals, cli, paths, status, tasks  # noqa: E402
 
 
 class TestStatus(unittest.TestCase):
@@ -71,6 +74,28 @@ class TestStatus(unittest.TestCase):
         s = status.snapshot(30)
         self.assertEqual(next(r for r in s["tasks"] if r["id"] == t.id)["status"], "killed")
         self.assertEqual(s["running"], [])
+
+
+    def test_no_decision_while_the_kill_switch_is_on(self):
+        # the dashboard's approve button runs `sadyanx approve`: with everything stopped it must not
+        # push, open a PR, send on Slack or resume the agent
+        paths.kill_file().parent.mkdir(parents=True, exist_ok=True)
+        paths.kill_file().write_text("now")
+        aid = approvals.pending(paths.run_dir(self.parked.id))[0]["id"]
+        for verb in ("approve", "reject"):
+            with self.subTest(verb=verb), self.assertRaises(SystemExit) as exit_, \
+                    contextlib.redirect_stderr(io.StringIO()) as err:
+                cli.main([verb, self.parked.id, aid])
+            self.assertEqual(exit_.exception.code, 1)
+            self.assertIn("kill switch", err.getvalue())
+        self.assertEqual([i["id"] for i in approvals.pending(paths.run_dir(self.parked.id))], [aid])
+
+    def test_an_unknown_approval_id_is_refused(self):
+        # the app always names the exact approval it showed; one decided meanwhile is not re-decided
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()) as err:
+            cli.main(["approve", self.parked.id, "deadbeef"])
+        self.assertIn("no pending approval with id: deadbeef", err.getvalue())
+        self.assertEqual(len(approvals.pending(paths.run_dir(self.parked.id))), 1)
 
 
 if __name__ == "__main__":

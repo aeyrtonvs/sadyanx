@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import signal
@@ -150,6 +151,10 @@ def cmd_run(a) -> None:
 
 
 def _decide(a, status: str) -> None:
+    # a decision carries out harness actions (push, open a PR, send on Slack) and resumes the
+    # agent, none of which may happen while everything is meant to be stopped
+    if paths.kill_file().exists():
+        die("the kill switch is on: nothing is approved or rejected until you clear it (sadyanx unkill)")
     t = tasks.find(a.ref)
     run_dir = paths.run_dir(t.id)
     pend = approvals.pending(run_dir)
@@ -259,6 +264,14 @@ def cmd_usage(a) -> None:
 
 def cmd_status(a) -> None:
     print(status.as_json(a.days) if a.json else status.render(a.days))
+
+
+def cmd_mcp(a) -> None:
+    from . import mcp_server
+    if a.config:  # what to add to Claude Code's MCP configuration
+        print(json.dumps({"type": "stdio", "command": sys.executable, "args": [str(paths.sadyanx_bin()), "mcp"]}))
+        return
+    mcp_server.serve(dict(os.environ))
 
 
 def cmd_persona(a) -> None:
@@ -500,6 +513,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--days", type=int, default=30)
     s.add_argument("--json", action="store_true")
     s.set_defaults(fn=cmd_status)
+
+    s = sub.add_parser("mcp", help="local MCP server (stdio) for the desktop dashboard: status, approve, reject")
+    s.add_argument("--config", action="store_true", help="print the server entry for Claude Code's MCP config")
+    s.set_defaults(fn=cmd_mcp)
 
     sub.add_parser("persona", help="the voice sadyanx uses with you (config/persona.toml)").set_defaults(fn=cmd_persona)
 

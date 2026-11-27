@@ -251,6 +251,60 @@ class TestOtherTools(unittest.TestCase):
         self.assertEqual(guard.decide("Artifact", {"action": "delete"}, WT, ctx()).kind, GATE)
 
 
+class TestHarnessControls(unittest.TestCase):
+    """An agent must never drive the harness: it could approve its own parked action."""
+
+    def test_the_cli_is_forbidden(self):
+        for cmd in [
+            "sadyanx approve 0001 3f9a1c2e",
+            "sadyanx unkill",
+            "~/.local/bin/sadyanx approve 0001 --all",
+            "/Users/someone/code/sadyanx/bin/sadyanx run 0002 --auto",
+            "python3 /Users/someone/code/sadyanx/bin/sadyanx reject 0001 3f9a1c2e",
+            "python3.13 -I ./bin/sadyanx approve 0001",
+            "cd /tmp && sadyanx kill",
+            "bash -c 'sadyanx approve 0001 3f9a1c2e'",
+            "FOO=1 nohup sadyanx approve 0001 3f9a1c2e",
+            "python3 -c 'from sadyanxlib import approvals; approvals.decide(...)'",
+            "python3 -m sadyanxlib.cli approve 0001",
+        ]:
+            with self.subTest(cmd=cmd):
+                self.assertEqual(bash(cmd), DENY)
+
+    def test_false_positives(self):
+        for cmd in [
+            "grep -rn sadyanx docs/",
+            "echo sadyanx",
+            "ls sadyanx-notes",
+            "cat notes/sadyanx.md",
+            "git log --grep sadyanx",
+            "python3 -m unittest discover -s tests",
+            "python3 scripts/sadyanx_report.py",
+            "sadyanx-lint src/",
+        ]:
+            with self.subTest(cmd=cmd):
+                self.assertEqual(bash(cmd), ALLOW)
+
+    def test_its_mcp_server_is_forbidden(self):
+        everything = ctx(mcp_allow=[r"mcp__.*"])
+        for tool in ("mcp__sadyanx__status", "mcp__sadyanx__approve", "mcp__sadyanx__reject",
+                     "mcp__my_sadyanx_mcp__approve", "mcp__SADYANX__status"):
+            with self.subTest(tool=tool):
+                self.assertEqual(guard.decide(tool, {"task": "0001", "approval": "3f9a1c2e"}, WT, ctx()).kind, DENY)
+                self.assertEqual(guard.decide(tool, {}, WT, everything).kind, DENY)  # not even with mcp_allow
+        # a pin (the harness's own send session) does not open it either
+        pinned = ctx(pinned_calls=[{"tool": r"mcp__sadyanx__approve", "input": {}}])
+        self.assertEqual(guard.decide("mcp__sadyanx__approve", {}, WT, pinned).kind, DENY)
+
+    def test_other_servers_keep_their_rules(self):
+        # gated as before: only the sadyanx server is singled out
+        self.assertEqual(guard.decide("mcp__other__approve_request", {}, WT, ctx()).kind, GATE)
+        # false positive: sadyanx in the arguments, not the server
+        self.assertEqual(guard.decide("mcp__claude_ai_Atlassian__getJiraIssue", {"issueIdOrKey": "sadyanx"}, WT,
+                                      ctx()).kind, ALLOW)
+        self.assertEqual(guard.decide("mcp__sadyanxy_notes__list", {}, WT, ctx()).kind, DENY)  # fails closed
+
+
 SLACK = "mcp__claude_ai_Slack__"
 SEND = SLACK + "slack_send_message"
 PIN = {"tool": r"mcp__claude_ai_Slack__slack_send_message",
